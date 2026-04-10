@@ -28,6 +28,7 @@ def evaluate_sync_status(mapping: ConfigMapping) -> SyncState:
             source_exists=False,
             target_exists=target_exists,
             is_symlink=target.is_symlink() if target_exists else False,
+            method=mapping.method or LinkMethod.SYMLINK,
         )
 
     if target.is_symlink():
@@ -38,6 +39,7 @@ def evaluate_sync_status(mapping: ConfigMapping) -> SyncState:
                 source_exists=True,
                 target_exists=True,
                 is_symlink=True,
+                method=mapping.method or LinkMethod.SYMLINK,
             )
         else:
             return SyncState(
@@ -46,6 +48,7 @@ def evaluate_sync_status(mapping: ConfigMapping) -> SyncState:
                 source_exists=True,
                 target_exists=True,
                 is_symlink=True,
+                method=mapping.method or LinkMethod.SYMLINK,
             )
 
     if not target_exists:
@@ -55,6 +58,7 @@ def evaluate_sync_status(mapping: ConfigMapping) -> SyncState:
             source_exists=True,
             target_exists=False,
             is_symlink=False,
+            method=mapping.method or LinkMethod.SYMLINK,
         )
 
     if paths_match(source, target):
@@ -64,6 +68,7 @@ def evaluate_sync_status(mapping: ConfigMapping) -> SyncState:
             source_exists=True,
             target_exists=True,
             is_symlink=False,
+            method=mapping.method or LinkMethod.SYMLINK,
         )
 
     return SyncState(
@@ -72,6 +77,7 @@ def evaluate_sync_status(mapping: ConfigMapping) -> SyncState:
         source_exists=True,
         target_exists=True,
         is_symlink=False,
+        method=mapping.method or LinkMethod.SYMLINK,
     )
 
 
