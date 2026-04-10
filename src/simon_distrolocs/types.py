@@ -6,6 +6,20 @@ from pathlib import Path
 from typing import Optional
 
 
+class LinkMethod(Enum):
+    """Defines how a managed config is linked to its destination.
+
+    Attributes:
+        SYMLINK: Creates symbolic links (default). Changes in source reflect immediately.
+        ANCHOR: Creates a fixed hard copy without further sync. A stable snapshot
+            of the source at the time of linking — like a moor point you can
+            always return to.
+    """
+
+    SYMLINK = "symlink"
+    ANCHOR = "anchor"
+
+
 class SyncStatus(Enum):
     """Represents the synchronization state of a managed configuration."""
 
@@ -38,6 +52,7 @@ class ConfigMapping:
         target: Destination path on the system (absolute or ~-prefixed).
         distro_type: Optional reference to a DistroType name.
         hosts: Tuple of hostnames where this mapping applies. Empty = all hosts.
+        method: How to link source to target (symlink or anchor hard copy).
     """
 
     name: str
@@ -45,6 +60,7 @@ class ConfigMapping:
     target: Path
     distro_type: Optional[str] = None
     hosts: tuple[str, ...] = field(default_factory=tuple)
+    method: Optional[LinkMethod] = None
 
 
 @dataclass(frozen=True)
@@ -57,6 +73,7 @@ class SyncState:
         source_exists: Whether the source managed file/folder exists.
         target_exists: Whether the target destination exists.
         is_symlink: Whether the target is a symlink.
+        method: The link method used for this mapping (symlink or anchor).
     """
 
     mapping: ConfigMapping
@@ -64,6 +81,7 @@ class SyncState:
     source_exists: bool
     target_exists: bool
     is_symlink: bool
+    method: LinkMethod
 
 
 @dataclass(frozen=True)

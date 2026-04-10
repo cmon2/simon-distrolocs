@@ -74,6 +74,8 @@ source = "configs/bashrc"
 target = "~/.bashrc"
 # Optional: Reference to a distro_type (defaults to 0 depth if omitted)
 distro_type = "workstation"
+# Optional: Link method - "symlink" (default) or "anchor"
+method = "symlink"
 
 [[mapping]]
 name = "Vim Config"
@@ -86,6 +88,7 @@ name = "System Scripts"
 source = "scripts/"
 target = "/usr/local/bin/"
 distro_type = "server"
+method = "anchor"
 ```
 
 ### 3.3 Host Filtering
@@ -116,7 +119,20 @@ hosts = ["work-laptop", "work-laptop.local"]
 | **Synced** | File exists at both locations, contents match exactly | `[synced]` (green) |
 | **Unsynced** | File missing, or contents differ | `[unsynced]` (red) |
 
-### 4.2 Status Evaluation Logic
+### 4.2 LinkMethod Variants
+
+The `method` field in `[[mapping]]` controls how source and target are linked:
+
+| Method | Behavior | Sync Status | Use Case |
+|--------|----------|-------------|----------|
+| **symlink** (default) | Creates symbolic link from target → source | Linked | Configs that change frequently; edits reflect immediately |
+| **anchor** | Hard copy of source to target (snapshot) | Synced | Stable configs; a fixed point you can return to |
+
+**Behavior Differences**:
+- **symlink**: Target becomes a symlink. Changes to source are immediately visible at target. If source is deleted, target becomes dangling.
+- **anchor**: Target becomes a independent copy. Source changes do NOT propagate. Useful for "pinning" a known-good configuration.
+
+### 4.3 Status Evaluation Logic
 
 ```
 1. If target is symlink:
@@ -129,7 +145,7 @@ hosts = ["work-laptop", "work-laptop.local"]
    - Unsynced (missing)
 ```
 
-### 4.3 Content Comparison
+### 4.4 Content Comparison
 
 - **Files**: Compare byte content using `hashlib.sha256()`
 - **Directories**: Compare by hashing sorted file list + content recursively
@@ -199,19 +215,30 @@ Legend:
 
 ## 7. File Operations
 
-### 7.1 Overwrite Behavior
+### 7.1 execute_sync Behavior
 
-When `--overwrite` or `--sync` is specified:
+When `--overwrite` or `--sync` is specified, `execute_sync()` performs the appropriate action based on the mapping's `method`:
 
-1. For each **Unsynced** config:
-   - If target is a symlink: Remove symlink first
-   - If target is a directory: Remove recursively
-   - If target is a file: Remove file
-   - Copy source → destination (preserving permissions)
+#### For **symlink** method:
+1. If target exists and is a symlink pointing elsewhere: Remove symlink
+2. If target exists (file/dir/symlink to same source): Remove target
+3. Create symlink: `target → source`
+4. Resulting status: **Linked**
 
-2. **Synced** configs: No action (already matching)
+#### For **anchor** method:
+1. If target exists: Remove recursively (file, directory, or symlink)
+2. Perform hard copy: `source → target` (preserving permissions)
+3. Resulting status: **Synced** (independent snapshot)
 
-3. **Linked** configs: No action (symlinks are display-only in Increment 1)
+#### Summary by Method:
+
+| Method | Action | Result Status |
+|--------|--------|---------------|
+| symlink | `os.symlink(source, target)` | Linked |
+| anchor | `safe_execute_copy(source, target)` | Synced |
+
+**Synced** configs: No action required (already matching)
+**Linked** configs: No action required (symlink already exists and points to correct source)
 
 ### 7.2 Directory Copying
 
@@ -250,6 +277,11 @@ from enum import Enum
 from pathlib import Path
 from typing import Optional
 
+class LinkMethod(Enum):
+    """Defines how a managed config is linked to its destination."""
+    SYMLINK = "symlink"  # Default - creates symbolic links
+    ANCHOR = "anchor"    # Creates a fixed hard copy without further sync
+
 class SyncStatus(Enum):
     LINKED = "linked"
     SYNCED = "synced"
@@ -267,6 +299,7 @@ class ConfigMapping:
     target: Path  # Absolute or ~ path on system
     distro_type: Optional[str]
     hosts: tuple[str, ...]  # Empty tuple = all hosts
+    method: Optional[LinkMethod] = None  # Link method (default: SYMLINK)
 
 @dataclass(frozen=True)
 class SyncState:
@@ -275,6 +308,7 @@ class SyncState:
     source_exists: bool
     target_exists: bool
     is_symlink: bool
+    method: LinkMethod  # The link method used for this mapping
 ```
 
 ---
@@ -295,18 +329,16 @@ tomli>=2.0.0
 ## 11. Constraints
 
 1. **Linux-only**: Uses Linux path conventions, symlink behaviors
-2. **No symlink creation in Increment 1**: Symlinks are display-only
-3. **Single TOML**: Multiple TOML merging deferred to Increment 2
-4. **Typed Python**: All code uses type hints, dataclasses where appropriate
-5. **Pure functions**: Business logic prefers pure functions over mutation
-6. **Path handling**: All file paths via `pathlib.Path`
+2. **Single TOML**: Multiple TOML merging deferred to Increment 2
+3. **Typed Python**: All code uses type hints, dataclasses where appropriate
+4. **Pure functions**: Business logic prefers pure functions over mutation
+5. **Path handling**: All file paths via `pathlib.Path`
 
 ---
 
 ## 12. Future Considerations (Increment 2+)
 
 - Multiple TOML file merging
-- Symlink creation and management
 - Bidirectional sync
 - Dry-run mode for overwrite
 - Configuration templating

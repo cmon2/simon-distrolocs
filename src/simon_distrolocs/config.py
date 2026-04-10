@@ -13,7 +13,7 @@ if sys.version_info >= (3, 11):
 else:
     import tomli as tomllib  # type: ignore[no-redef]
 
-from .types import AppConfig, ConfigMapping, DistroType
+from .types import AppConfig, ConfigMapping, DistroType, LinkMethod
 
 
 class ConfigError(Exception):
@@ -95,9 +95,31 @@ def _parse_distro_types(toml_dict: dict[str, Any]) -> dict[str, DistroType]:
     return distro_types
 
 
-def _parse_mappings(
-    toml_dict: dict[str, Any], parent_dir: Path
-) -> list[ConfigMapping]:
+def _parse_link_method(method_str: str | None) -> LinkMethod:
+    """Parse a method string into a LinkMethod enum value.
+
+    Args:
+        method_str: The method string from TOML (e.g., "symlink", "anchor").
+
+    Returns:
+        The corresponding LinkMethod enum value (defaults to SYMLINK if None).
+
+    Raises:
+        ConfigError: If the method string is not a valid LinkMethod value.
+    """
+    if method_str is None:
+        return LinkMethod.SYMLINK
+
+    try:
+        return LinkMethod(method_str)
+    except ValueError:
+        valid_values = [m.value for m in LinkMethod]
+        raise ConfigError(
+            f"Invalid method '{method_str}'. Valid values are: {valid_values}"
+        )
+
+
+def _parse_mappings(toml_dict: dict[str, Any], parent_dir: Path) -> list[ConfigMapping]:
     """Parse [[mapping]] sections from TOML.
 
     Args:
@@ -119,12 +141,14 @@ def _parse_mappings(
         target_str = item.get("target", "")
         distro_type = item.get("distro_type")
         hosts_raw = item.get("hosts", [])
+        method_str = item.get("method")
 
         if isinstance(hosts_raw, str):
             hosts_raw = [hosts_raw]
 
         source = parent_dir / source_str
         target = Path(target_str.replace("~", str(Path.home())))
+        method = _parse_link_method(method_str)
 
         mapping = ConfigMapping(
             name=name,
@@ -132,6 +156,7 @@ def _parse_mappings(
             target=target,
             distro_type=distro_type,
             hosts=tuple(hosts_raw),
+            method=method,
         )
         mappings.append(mapping)
 

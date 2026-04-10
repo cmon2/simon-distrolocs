@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import shutil
 from pathlib import Path
 from typing import Generator
+
+logger = logging.getLogger(__name__)
 
 
 def compute_file_hash(file_path: Path) -> str:
@@ -180,4 +183,33 @@ def safe_execute_copy(source: Path, target: Path) -> bool:
             copy_file(source, target)
         return True
     except OSError:
+        return False
+
+
+def create_symlink(source: Path, target: Path) -> bool:
+    """Create a symlink from target to source.
+
+    Creates parent directories if they don't exist, removes existing
+    target (file, dir, or symlink), and creates the symlink.
+
+    Args:
+        source: The path the symlink should point to.
+        target: The path where the symlink will be created.
+
+    Returns:
+        True if symlink was created successfully, False otherwise.
+    """
+    try:
+        # Create parent directories if needed
+        target.parent.mkdir(parents=True, exist_ok=True)
+
+        # Remove existing target (file, dir, or symlink)
+        if target.exists() or target.is_symlink():
+            remove_path(target)
+
+        # Create symlink from target pointing to source
+        target.symlink_to(source)
+        return True
+    except OSError as e:
+        logger.error("Failed to create symlink from %s to %s: %s", target, source, e)
         return False
