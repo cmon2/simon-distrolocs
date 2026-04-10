@@ -9,8 +9,13 @@ from pathlib import Path
 from rich.console import Console
 
 from .config import AppConfig, ConfigError, load_config
-from .filesystem import remove_path, safe_execute_copy
-from .sync_engine import count_by_status, evaluate_all_sync_status, filter_sync_states
+from .filesystem import remove_path
+from .sync_engine import (
+    count_by_status,
+    evaluate_all_sync_status,
+    execute_sync,
+    filter_sync_states,
+)
 from .types import SyncStatus
 from .visualization import build_config_tree, print_legend
 
@@ -119,7 +124,9 @@ def load_configuration(managed_dir: Path) -> AppConfig:
         sys.exit(1)
 
 
-def execute_overwrite(config: AppConfig, sync_states: list, dry_run: bool = False) -> int:
+def execute_overwrite(
+    config: AppConfig, sync_states: list, dry_run: bool = False
+) -> int:
     """Execute the overwrite operation for unsynced configs.
 
     Args:
@@ -151,19 +158,20 @@ def execute_overwrite(config: AppConfig, sync_states: list, dry_run: bool = Fals
         if dry_run:
             console.print(
                 f"[yellow]Would sync:[/yellow] {mapping.name} "
-                f"({source} → {target})"
+                f"({source} → {target}) [dim]({state.method.value})[/dim]"
             )
         else:
             console.print(
                 f"[cyan]Syncing:[/cyan] {mapping.name} "
-                f"({source} → {target})"
+                f"({source} → {target}) [dim]({state.method.value})[/dim]"
             )
 
-            if target.exists() or target.is_symlink():
-                remove_path(target)
-
-            if safe_execute_copy(source, target):
-                console.print(f"  [green]✓ Synced successfully[/green]")
+            # Use execute_sync which respects the method (symlink vs anchor)
+            new_state = execute_sync(state)
+            if new_state.status in (SyncStatus.SYNCED, SyncStatus.LINKED):
+                console.print(
+                    f"  [green]✓ Synced successfully ({new_state.status.value})[/green]"
+                )
                 synced_count += 1
             else:
                 error_console.print(f"  [red]✗ Failed to sync[/red]")
@@ -227,9 +235,7 @@ def main() -> int:
     config = load_configuration(args.managed_configs_directory)
 
     if not config.mappings:
-        console.print(
-            "[yellow]No configurations found for this host.[/yellow]"
-        )
+        console.print("[yellow]No configurations found for this host.[/yellow]")
         return 0
 
     sync_states = evaluate_all_sync_status(config)
@@ -260,35 +266,25 @@ def main() -> int:
         synced = execute_overwrite(config, sync_states, dry_run=args.dry_run)
 
         if args.dry_run:
-            console.print(
-                f"\n[bold]Would sync {synced} configuration(s)[/bold]"
-            )
+            console.print(f"\n[bold]Would sync {synced} configuration(s)[/bold]")
         else:
-            console.print(
-                f"\n[bold]Synced {synced} configuration(s)[/bold]"
-            )
+            console.print(f"\n[bold]Synced {synced} configuration(s)[/bold]")
 
     elif not args.quiet:
         summary_parts: list[str] = []
         if counts[SyncStatus.SYNCED] > 0:
-            summary_parts.append(
-                f"[green]{counts[SyncStatus.SYNCED]} synced[/green]"
-            )
+            summary_parts.append(f"[green]{counts[SyncStatus.SYNCED]} synced[/green]")
         if counts[SyncStatus.UNSYNCED] > 0:
             summary_parts.append(
                 f"[yellow]{counts[SyncStatus.UNSYNCED]} unsynced[/yellow]"
             )
         if counts[SyncStatus.LINKED] > 0:
-            summary_parts.append(
-                f"[cyan]{counts[SyncStatus.LINKED]} linked[/cyan]"
-            )
+            summary_parts.append(f"[cyan]{counts[SyncStatus.LINKED]} linked[/cyan]")
 
         console.print(f"\n[bold]Summary:[/bold] {', '.join(summary_parts)}")
 
         if counts[SyncStatus.UNSYNCED] > 0:
-            console.print(
-                "\n[dim]Use --overwrite to sync unsynced configs[/dim]"
-            )
+            console.print("\n[dim]Use --overwrite to sync unsynced configs[/dim]")
 
     return 0
 
