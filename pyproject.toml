@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "simon-distrolocs"
+version = "1.0.0"
+description = "CLI tool to manage and distribute centralized configuration files"
+readme = "requirements.md"
+requires-python = ">=3.10"
+authors = [
+    {name = "Simon"}
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: System :: Systems Administration",
+]
+dependencies = [
+    "rich>=13.0.0",
+]
+
+[project.optional-dependencies]
+tomli = [
+    "tomli>=2.0.0;python_version<'3.11'",
+]
+
+[project.scripts]
+simon-distrolocs = "simon_distrolocs.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+simon_distrolocs = ["py.typed"]
