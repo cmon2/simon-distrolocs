@@ -43,10 +43,29 @@ def find_config_file(parent_dir: Path) -> Path:
         )
 
     if len(matching_files) > 1:
+        # Check if all files are identical
+        file_contents = []
+        for f in matching_files:
+            try:
+                with open(f, "rb") as fh:
+                    file_contents.append(fh.read())
+            except OSError:
+                pass
+
+        # If all files have the same content, use the first one
+        if len(file_contents) > 1 and all(c == file_contents[0] for c in file_contents):
+            import warnings
+
+            warnings.warn(
+                f"Multiple identical config files found. Using: {matching_files[0]}\n"
+                f"Ignoring duplicates: {[str(f) for f in matching_files[1:]]}"
+            )
+            return matching_files[0]
+
+        # Files differ - this is a real error
         file_list = "\n".join(f"  - {f}" for f in matching_files)
         raise ConfigError(
-            f"Multiple configuration files found. Merge support coming in Increment 2.\n"
-            f"{file_list}"
+            f"Multiple configuration files found with different content.\n{file_list}"
         )
 
     return matching_files[0]
