@@ -17,15 +17,15 @@ from .types import SyncStatus
 
 
 SYNC_COLORS: dict[str, str] = {
-    "linked": "cyan",
+    "linked": "green",
     "synced": "green",
-    "unsynced": "yellow",
+    "unsynced": "red",
 }
 
-STATUS_LABELS: dict[str, str] = {
-    "linked": "[link]",
-    "synced": "[synced]",
-    "unsynced": "[unsynced]",
+STATUS_SYMBOLS: dict[str, str] = {
+    "linked": "✓",
+    "synced": "✓",
+    "unsynced": "✗",
 }
 
 
@@ -42,18 +42,18 @@ def get_status_style(status: "SyncStatus") -> Style:
     return Style(color=color, bold=True)
 
 
-def get_status_label(status: "SyncStatus") -> str:
-    """Get the formatted status label for display.
+def get_status_symbol(status: "SyncStatus") -> str:
+    """Get the status symbol for display.
 
     Args:
         status: The sync status.
 
     Returns:
-        Formatted status string with color tags.
+        Formatted symbol with color tags.
     """
     color = SYNC_COLORS.get(status.value, "white")
-    label = STATUS_LABELS.get(status.value, status.value)
-    return f"[{color}]{label}[/{color}]"
+    symbol = STATUS_SYMBOLS.get(status.value, "?")
+    return f"[{color}]{symbol}[/{color}]"
 
 
 def expand_path_for_display(target: Path, depth: int) -> list[tuple[Path, int]]:
@@ -140,9 +140,13 @@ def build_config_tree(
     summary_parts: list[str] = []
 
     if status_counts[SyncStatus.SYNCED] > 0:
-        summary_parts.append(f"[green]{status_counts[SyncStatus.SYNCED]} synced[/green]")
+        summary_parts.append(
+            f"[green]{status_counts[SyncStatus.SYNCED]} synced[/green]"
+        )
     if status_counts[SyncStatus.UNSYNCED] > 0:
-        summary_parts.append(f"[yellow]{status_counts[SyncStatus.UNSYNCED]} unsynced[/yellow]")
+        summary_parts.append(
+            f"[yellow]{status_counts[SyncStatus.UNSYNCED]} unsynced[/yellow]"
+        )
     if status_counts[SyncStatus.LINKED] > 0:
         summary_parts.append(f"[cyan]{status_counts[SyncStatus.LINKED]} linked[/cyan]")
 
@@ -154,11 +158,11 @@ def build_config_tree(
     for sync_state in sync_states:
         mapping = sync_state.mapping
         status = sync_state.status
-        status_str = get_status_label(status)
+        status_symbol = get_status_symbol(status)
 
         source_str = f"[dim]→ {mapping.source}[/dim]"
 
-        label = f"[bold]{mapping.name}[/bold] → [blue]{mapping.target}[/blue] {status_str}"
+        label = f"[bold]{mapping.name}[/bold] → [blue]{mapping.target}[/blue] {status_symbol}"
         target_depth = get_visualization_depth(config, mapping)
 
         subtree = tree.add(label)
@@ -205,11 +209,10 @@ def print_legend(console: Console | None = None) -> None:
         console = Console()
 
     legend_items = [
-        ("[green][synced][/green]", "Files match exactly"),
-        ("[yellow][unsynced][/yellow]", "Files differ or missing"),
-        ("[cyan][link][/cyan]", "Valid symlink to managed source"),
+        ("[green]✓[/green]", "Synced or linked"),
+        ("[red]✗[/red]", "Unsynced"),
     ]
 
     console.print("[bold]Legend:[/bold]")
-    for status_label, description in legend_items:
-        console.print(f"  {status_label}    {description}")
+    for symbol, description in legend_items:
+        console.print(f"  {symbol}    {description}")
