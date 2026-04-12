@@ -155,11 +155,25 @@ class GitSource:
     def get_auth_token(self) -> str:
         """Read the authentication token from the token file.
 
+        Handles two formats:
+        1. Raw token: "tokenstring"
+        2. URL format: "http://user:token@host"
+
         Returns:
             The token string, or empty string if file doesn't exist.
         """
         try:
             with open(self.auth_token_path) as f:
-                return f.read().strip()
+                token = f.read().strip()
+
+            # Handle URL-formatted tokens (e.g., "http://simon:TOKEN@host")
+            if "@" in token and "://" in token:
+                # Extract token from URL format: scheme://user:token@host
+                # The token is the password part (between : and @)
+                parts = token.split("@")[0]
+                if ":" in parts:
+                    token = parts.rsplit(":", 1)[1]
+
+            return token
         except OSError:
             return ""
