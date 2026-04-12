@@ -9,6 +9,8 @@ from pathlib import Path
 
 from rich.console import Console
 
+from cmon2lib import cprint, clog
+
 from .config import (
     AppConfig,
     ConfigError,
@@ -146,8 +148,8 @@ def load_configuration(managed_dir: Path) -> AppConfig:
     try:
         return load_config(managed_dir)
     except ConfigError as e:
-        console = Console(stderr=True)
-        console.print(f"[bold red]Configuration Error:[/bold red] {e}")
+        cprint("error", f"[bold red]Configuration Error:[/bold red] {e}")
+        clog("error", f"Configuration error: {e}")
         sys.exit(1)
 
 
@@ -164,15 +166,13 @@ def execute_overwrite(
     Returns:
         Number of configs that would be/were synced.
     """
-    console = Console()
-    error_console = Console(stderr=True)
     unsynced_states = [
         s for s in sync_states if s.status == SyncStatus.UNSYNCED and s.source_exists
     ]
 
     if not unsynced_states:
         if not dry_run:
-            console.print("[green]All configs are already in sync.[/green]")
+            cprint("success", "[green]All configs are already in sync.[/green]")
         return 0
 
     synced_count = 0
@@ -183,25 +183,30 @@ def execute_overwrite(
         target = mapping.target
 
         if dry_run:
-            console.print(
+            cprint(
+                "info",
                 f"[yellow]Would sync:[/yellow] {mapping.name} "
-                f"({source} → {target}) [dim]({state.method.value})[/dim]"
+                f"({source} → {target}) [dim]({state.method.value})[/dim]",
             )
         else:
-            console.print(
+            cprint(
+                "info",
                 f"[cyan]Syncing:[/cyan] {mapping.name} "
-                f"({source} → {target}) [dim]({state.method.value})[/dim]"
+                f"({source} → {target}) [dim]({state.method.value})[/dim]",
             )
 
             # Use execute_sync which respects the method (symlink vs anchor)
             new_state = execute_sync(state)
             if new_state.status in (SyncStatus.SYNCED, SyncStatus.LINKED):
-                console.print(
-                    f"  [green]✓ Synced successfully ({new_state.status.value})[/green]"
+                cprint(
+                    "success",
+                    f"  [green]✓ Synced successfully ({new_state.status.value})[/green]",
                 )
+                clog("success", f"Synced config: {mapping.name}")
                 synced_count += 1
             else:
-                error_console.print(f"  [red]✗ Failed to sync[/red]")
+                cprint("error", f"  [red]✗ Failed to sync[/red]")
+                clog("error", f"Failed to sync: {mapping.name}")
 
     return synced_count
 
@@ -252,12 +257,10 @@ def main() -> int:
     parser = create_parser()
     args = parser.parse_args()
 
-    console = Console()
-
     overwrite = args.overwrite or args.sync
 
     if args.verbose > 0 and not args.quiet:
-        console.print(f"[dim]Scanning: {args.managed_configs_directory}[/dim]")
+        cprint("info", f"[dim]Scanning: {args.managed_configs_directory}[/dim]")
 
     config = load_config(args.managed_configs_directory)
 
@@ -269,27 +272,31 @@ def main() -> int:
             git_sources = _parse_git_sources(toml_dict, config_file.parent)
 
             if not git_sources:
-                console.print("[yellow]No git sources configured.[/yellow]")
+                cprint("warning", "[yellow]No git sources configured.[/yellow]")
                 return 0
 
             total_cloned, total_failed = clone_all_repos(
                 git_sources, dry_run=args.dry_run, quiet=args.quiet
             )
 
-            console.print(
-                f"\n[bold]Cloned {total_cloned} repository(ies), {total_failed} failed[/bold]"
+            cprint(
+                "info",
+                f"\n[bold]Cloned {total_cloned} repository(ies), {total_failed} failed[/bold]",
             )
+            clog("info", f"Clone result: {total_cloned} cloned, {total_failed} failed")
             return 0 if total_failed == 0 else 1
 
         except ConfigError as e:
-            console.print(f"[bold red]Configuration Error:[/bold red] {e}")
+            cprint("error", f"[bold red]Configuration Error:[/bold red] {e}")
+            clog("error", f"Configuration error: {e}")
             return 1
 
     # Handle --duplicate mode (duplicate repo to Forgejo)
     if args.duplicate:
         if not args.branch:
-            console.print(
-                "[bold red]Error: --branch is required when using --duplicate[/bold red]"
+            cprint(
+                "error",
+                "[bold red]Error: --branch is required when using --duplicate[/bold red]",
             )
             return 1
 
@@ -310,11 +317,12 @@ def main() -> int:
             )
             return result.returncode
         except Exception as e:
-            console.print(f"[bold red]Error running duplicate script:[/bold red] {e}")
+            cprint("error", f"[bold red]Error running duplicate script:[/bold red] {e}")
+            clog("error", f"Duplicate script error: {e}")
             return 1
 
     if not config.mappings:
-        console.print("[yellow]No configurations found for this host.[/yellow]")
+        cprint("warning", "[yellow]No configurations found for this host.[/yellow]")
         return 0
 
     sync_states = evaluate_all_sync_status(config)
@@ -322,7 +330,7 @@ def main() -> int:
     counts = count_by_status(sync_states)
 
     if not args.quiet:
-        console.print()
+        cprint("info", "")
 
         print_tree_output(
             config,
@@ -332,22 +340,23 @@ def main() -> int:
             only_unsynced=args.only_unsynced,
         )
 
-        console.print()
-        print_legend(console)
+        cprint("info", "")
+        print_legend(Console())
 
     if overwrite:
-        console.print()
+        cprint("info", "")
 
         if args.dry_run:
-            console.print("[bold]Dry run mode - no changes will be made[/bold]")
-            console.print()
+            cprint("info", "[bold]Dry run mode - no changes will be made[/bold]")
+            cprint("info", "")
 
         synced = execute_overwrite(config, sync_states, dry_run=args.dry_run)
 
         if args.dry_run:
-            console.print(f"\n[bold]Would sync {synced} configuration(s)[/bold]")
+            cprint("info", f"\n[bold]Would sync {synced} configuration(s)[/bold]")
         else:
-            console.print(f"\n[bold]Synced {synced} configuration(s)[/bold]")
+            cprint("success", f"\n[bold]Synced {synced} configuration(s)[/bold]")
+            clog("success", f"Sync completed: {synced} config(s) synced")
 
     elif not args.quiet:
         summary_parts: list[str] = []
@@ -360,10 +369,10 @@ def main() -> int:
         if counts[SyncStatus.LINKED] > 0:
             summary_parts.append(f"[cyan]{counts[SyncStatus.LINKED]} linked[/cyan]")
 
-        console.print(f"\n[bold]Summary:[/bold] {', '.join(summary_parts)}")
+        cprint("info", f"\n[bold]Summary:[/bold] {', '.join(summary_parts)}")
 
         if counts[SyncStatus.UNSYNCED] > 0:
-            console.print("\n[dim]Use --overwrite to sync unsynced configs[/dim]")
+            cprint("info", "\n[dim]Use --overwrite to sync unsynced configs[/dim]")
 
     return 0
 

@@ -15,6 +15,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+from cmon2lib import cprint, clog
+
 from .types import AuthType, GitSource, RepoInfo
 
 # Verification script paths relative to distrolocs root
@@ -85,7 +87,7 @@ def warn_missing_auth_verification(sources: list[GitSource]) -> None:
     Args:
         sources: List of GitSources to check.
     """
-    print("\n[yellow]Checking auth verification for git sources...[/yellow]")
+    cprint("info", "\n[yellow]Checking auth verification for git sources...[/yellow]")
 
     has_warnings = False
     for source in sources:
@@ -95,16 +97,17 @@ def warn_missing_auth_verification(sources: list[GitSource]) -> None:
         has_verification, message = check_auth_verification(source)
 
         if has_verification:
-            print(f"  [green]✓[/green] {source.name}: {message}")
+            cprint("success", f"  [green]✓[/green] {source.name}: {message}")
         else:
-            print(f"  [yellow]![/yellow] {source.name}: {message}")
+            cprint("warning", f"  [yellow]![/yellow] {source.name}: {message}")
             has_warnings = True
 
     if has_warnings:
-        print(
+        cprint(
+            "warning",
             "\n[yellow]Warning: Some git sources don't have auth verification scripts.[/yellow]\n"
             "This means authentication can't be automatically verified before cloning.\n"
-            "Consider adding verification scripts to scripts/verify/"
+            "Consider adding verification scripts to scripts/verify/",
         )
 
 
@@ -287,38 +290,46 @@ def clone_all_repos(
 
         if current_host in source.excluded_on_hosts:
             if not quiet:
-                print(
-                    f"\n[dim]⊘[/dim] [cyan]Source:[/cyan] {source.name} (excluded on {current_host})"
+                cprint(
+                    "info",
+                    f"\n[dim]⊘[/dim] [cyan]Source:[/cyan] {source.name} (excluded on {current_host})",
                 )
             continue
 
         if not quiet:
-            print(f"\n[cyan]Source:[/cyan] {source.name}")
-            print(f"  Destination: {source.cloning_destination}")
-            print(f"  API: {source.list_repos_url}")
+            cprint("info", f"\n[cyan]Source:[/cyan] {source.name}")
+            cprint("info", f"  Destination: {source.cloning_destination}")
+            cprint("info", f"  API: {source.list_repos_url}")
 
         try:
             repos = fetch_repos(source)
             if not quiet:
-                print(f"  Found {len(repos)} repository(ies)")
+                cprint("info", f"  Found {len(repos)} repository(ies)")
         except Exception as e:
-            print(f"  [red]Failed to fetch repos:[/red] {e}")
+            cprint("error", f"  [red]Failed to fetch repos:[/red] {e}")
             total_failed += 1
             continue
 
         for repo in repos:
             if repo.name in source.exclude_repos:
                 if not quiet:
-                    print(f"  [dim]⊘[/dim] {repo.name}: excluded")
+                    cprint("debug", f"  [dim]⊘[/dim] {repo.name}: excluded")
                 continue
 
             result = clone_repo(repo, source, dry_run=dry_run)
             if result.success:
                 total_cloned += 1
                 if not quiet:
-                    print(f"  [green]✓[/green] {repo.name}: {result.message}")
+                    cprint(
+                        "success", f"  [green]✓[/green] {repo.name}: {result.message}"
+                    )
+                clog("info", f"Cloned {repo.name} from {source.name}")
             else:
                 total_failed += 1
-                print(f"  [red]✗[/red] {repo.name}: {result.message}")
+                cprint("error", f"  [red]✗[/red] {repo.name}: {result.message}")
+                clog(
+                    "error",
+                    f"Failed to clone {repo.name} from {source.name}: {result.message}",
+                )
 
     return total_cloned, total_failed
