@@ -29,3 +29,7 @@ test_multiple/
 
 # Installation script
 install.sh
+
+# Cloned git repos managed by simon-distrolocs
+06_agents_working_directory/
+git-repos/
