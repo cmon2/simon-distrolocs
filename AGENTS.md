@@ -87,11 +87,15 @@ exclude = ["repo1", "repo2"]
 
 ## Testing
 
+**IMPORTANT**: Always use `uv` for Python operations. Never use `pip` directly.
+
 ### Manual Testing
 
 ```bash
-# Test basic import
+# Test basic import (using uv venv)
+uv venv
 source .venv/bin/activate
+uv pip install -e .
 python -c "from simon_distrolocs import __main__"
 
 # Test help
@@ -107,7 +111,10 @@ python -m simon_distrolocs /tmp/test-configs
 ### Verify git_clone Module
 
 ```bash
-# Test imports
+# Test imports (using uv venv)
+uv venv
+source .venv/bin/activate
+uv pip install -e .
 python -c "from simon_distrolocs.git_clone import clone_all_repos, RepoInfo, GitSource"
 
 # Verify types exist

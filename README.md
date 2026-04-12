@@ -23,24 +23,21 @@ Simon DistroLocs solves the problem of keeping multiple machines in sync with th
 
 ## Installation
 
-### From Source
+### Using uv (Required)
+
+All Python package operations must use `uv`. Never use `pip` directly.
 
 ```bash
 cd simon-distrolocs
-pip install -e .
-```
-
-Or using the venv:
-
-```bash
-source .venv/bin/activate
-pip install -e .
-```
-
-### Using uv (Recommended)
-
-```bash
 uv sync
+uv pip install -e .
+```
+
+For a virtual environment:
+
+```bash
+uv venv
+source .venv/bin/activate
 uv pip install -e .
 ```
 
