@@ -159,11 +159,11 @@ def _parse_mappings(toml_dict: dict[str, Any], parent_dir: Path) -> list[ConfigM
         source_str = item.get("source", "")
         target_str = item.get("target", "")
         distro_type = item.get("distro_type")
-        hosts_raw = item.get("hosts", [])
+        excluded_on_hosts_raw = item.get("excluded_on_hosts", [])
         method_str = item.get("method")
 
-        if isinstance(hosts_raw, str):
-            hosts_raw = [hosts_raw]
+        if isinstance(excluded_on_hosts_raw, str):
+            excluded_on_hosts_raw = [excluded_on_hosts_raw]
 
         source = parent_dir / source_str
         target = Path(target_str.replace("~", str(Path.home())))
@@ -174,7 +174,7 @@ def _parse_mappings(toml_dict: dict[str, Any], parent_dir: Path) -> list[ConfigM
             source=source,
             target=target,
             distro_type=distro_type,
-            hosts=tuple(hosts_raw),
+            excluded_on_hosts=tuple(excluded_on_hosts_raw),
             method=method,
         )
         mappings.append(mapping)
@@ -204,7 +204,7 @@ def load_config(parent_dir: Path) -> AppConfig:
 
     filtered_mappings: list[ConfigMapping] = []
     for mapping in all_mappings:
-        if not mapping.hosts or current_host in mapping.hosts:
+        if current_host not in mapping.excluded_on_hosts:
             filtered_mappings.append(mapping)
 
     return AppConfig(
@@ -286,10 +286,13 @@ def _parse_git_sources(toml_dict: dict[str, Any], config_dir: Path) -> list[GitS
         cloning_dest_str = item.get("cloning_destination", "")
         enabled = item.get("enabled", True)
         ssl_verify = item.get("ssl_verify", True)
-        exclude_raw = item.get("exclude", [])
+        exclude_repos_raw = item.get("exclude_repos", [])
+        excluded_on_hosts_raw = item.get("excluded_on_hosts", [])
 
-        if isinstance(exclude_raw, str):
-            exclude_raw = [exclude_raw]
+        if isinstance(exclude_repos_raw, str):
+            exclude_repos_raw = [exclude_repos_raw]
+        if isinstance(excluded_on_hosts_raw, str):
+            excluded_on_hosts_raw = [excluded_on_hosts_raw]
 
         auth_type = _parse_auth_type(auth_type_str)
         auth_token_path = (
@@ -307,7 +310,8 @@ def _parse_git_sources(toml_dict: dict[str, Any], config_dir: Path) -> list[GitS
             cloning_destination=cloning_destination,
             enabled=enabled,
             ssl_verify=ssl_verify,
-            exclude=tuple(exclude_raw),
+            exclude_repos=tuple(exclude_repos_raw),
+            excluded_on_hosts=tuple(excluded_on_hosts_raw),
         )
         sources.append(source)
 

@@ -66,7 +66,7 @@ source = "relative/path"      # Source relative to config directory
 target = "~/.config"          # Destination (supports ~)
 distro_type = "workstation"   # Optional: references [distro_types.*]
 method = "symlink"           # Optional: "symlink" (default) or "anchor"
-hosts = ["hostname"]          # Optional: empty = all hosts
+excluded_on_hosts = []       # Optional: hosts where this should NOT apply
 ```
 
 ### Git Sources Structure
@@ -82,7 +82,8 @@ auth_token_path = "path/to/tokenfile"
 cloning_destination = "destinationDir/"
 enabled = true
 ssl_verify = true
-exclude = ["repo1", "repo2"]
+exclude_repos = ["repo1", "repo2"]
+excluded_on_hosts = []       # Optional: hosts where this source should NOT be used
 ```
 
 ---

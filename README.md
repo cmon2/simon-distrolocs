@@ -128,12 +128,12 @@ target = "~/.bashrc"
 distro_type = "workstation"
 method = "symlink"  # or "anchor"
 
-# Host-specific config (only applies to listed hosts)
+# Host-specific config (excluded on certain hosts)
 [[mapping]]
 name = "Work Laptop Theme"
 source = "laptop/theme"
 target = "~/.theme"
-hosts = ["work-laptop", "work-laptop.local"]
+excluded_on_hosts = ["other-host"]
 ```
 
 ### Fields
@@ -145,7 +145,7 @@ hosts = ["work-laptop", "work-laptop.local"]
 | `target` | Yes | Destination path (supports `~`) |
 | `distro_type` | No | References `[distro_types.*]` for visualization depth |
 | `method` | No | `symlink` (default) or `anchor` |
-| `hosts` | No | List of hostnames where this applies |
+| `excluded_on_hosts` | No | List of hostnames where this should NOT apply |
 
 ---
 
@@ -207,13 +207,14 @@ Add `[[git_sources]]` to your TOML:
 ```toml
 [[git_sources]]
 name = "GitLab"
-list_repos_url = "https://git.hmg/api/v4/projects?membership=true"
+list_repos_url = "https://git.hmg/api/v4/projects?membership=true&per_page=100"
 auth_type = "token"
 auth_token_path = "02_configs/git/Gitlab/token"
 cloning_destination = "git-repos/"
 enabled = true
 ssl_verify = false
-exclude = []
+exclude_repos = []
+excluded_on_hosts = []
 ```
 
 ### Supported Sources

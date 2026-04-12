@@ -89,8 +89,8 @@ method = "symlink"
 name = "Work Laptop Config"
 source = "laptop/config"
 target = "~/.config/laptop"
-# Only apply this mapping on these hosts
-hosts = ["work-laptop", "work-laptop.local"]
+# Excluded on these hosts (empty = apply to all)
+excluded_on_hosts = []
 ```
 
 ### 3.3 Git Sources Configuration
@@ -104,7 +104,7 @@ auth_token_path = "02_configs/git/GitHub/token"
 cloning_destination = "git-repos/"
 enabled = true
 ssl_verify = true
-exclude = ["simon_ide"]
+exclude_repos = []
 
 [[git_sources]]
 name = "Forgejo Private"
@@ -114,7 +114,7 @@ auth_token_path = "02_configs/git/Forgejo/token"
 cloning_destination = "git-repos/"
 enabled = true
 ssl_verify = false
-exclude = []
+exclude_repos = []
 
 [[git_sources]]
 name = "GitLab"
@@ -124,7 +124,8 @@ auth_token_path = "02_configs/git/Gitlab/token"
 cloning_destination = "git-repos/"
 enabled = true
 ssl_verify = false
-exclude = []
+exclude_repos = []
+excluded_on_hosts = []
 ```
 
 **Note:** `auth_token_path` and `cloning_destination` are resolved relative to the current working directory (repo root), not the TOML file location.
@@ -140,7 +141,8 @@ exclude = []
 | `cloning_destination` | string | Yes | Directory where cloned repos will be placed |
 | `enabled` | boolean | No | Whether this source is active (default: true) |
 | `ssl_verify` | boolean | No | Whether to verify SSL certificates (default: true) |
-| `exclude` | array | No | List of repo names to skip |
+| `exclude_repos` | array | No | List of repo names to skip |
+| `excluded_on_hosts` | array | No | List of hostnames where this source should NOT be used |
 
 ---
 
@@ -229,7 +231,7 @@ python -m simon_distrolocs <managed_configs_directory> [OPTIONS]
 ### 6.3 Clone Behavior
 
 - Skips repos that already exist locally
-- Respects `exclude` list to skip certain repositories
+- Respects `exclude_repos` list to skip certain repositories
 - Supports `--dry-run` to preview what would be cloned
 - Disables SSL verification when `ssl_verify = false`
 
@@ -291,7 +293,7 @@ class ConfigMapping:
     source: Path
     target: Path
     distro_type: Optional[str] = None
-    hosts: tuple[str, ...] = field(default_factory=tuple)
+    excluded_on_hosts: tuple[str, ...] = field(default_factory=tuple)
     method: Optional[LinkMethod] = None
 
 @dataclass(frozen=True)
@@ -309,7 +311,8 @@ class GitSource:
     cloning_destination: Path
     enabled: bool = True
     ssl_verify: bool = True
-    exclude: tuple[str, ...] = field(default_factory=tuple)
+    exclude_repos: tuple[str, ...] = field(default_factory=tuple)
+    excluded_on_hosts: tuple[str, ...] = field(default_factory=tuple)
 
     def get_auth_token(self) -> str:
         """Read authentication token from token file."""

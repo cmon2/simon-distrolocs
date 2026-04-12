@@ -73,7 +73,7 @@ class ConfigMapping:
     source: Path
     target: Path
     distro_type: Optional[str] = None
-    hosts: tuple[str, ...] = field(default_factory=tuple)
+    excluded_on_hosts: tuple[str, ...] = field(default_factory=tuple)
     method: Optional[LinkMethod] = None
 
 
@@ -140,7 +140,8 @@ class GitSource:
         cloning_destination: Directory where cloned repos will be placed.
         enabled: Whether this source is active.
         ssl_verify: Whether to verify SSL certificates.
-        exclude: List of repo names to skip.
+        exclude_repos: List of repo names to skip.
+        excluded_on_hosts: Tuple of hostnames where this source should NOT be used.
     """
 
     name: str
@@ -150,7 +151,8 @@ class GitSource:
     cloning_destination: Path
     enabled: bool = True
     ssl_verify: bool = True
-    exclude: tuple[str, ...] = field(default_factory=tuple)
+    exclude_repos: tuple[str, ...] = field(default_factory=tuple)
+    excluded_on_hosts: tuple[str, ...] = field(default_factory=tuple)
 
     def get_auth_token(self) -> str:
         """Read the authentication token from the token file.

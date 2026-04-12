@@ -7,6 +7,7 @@ git sources (Forgejo, GitHub, GitLab).
 from __future__ import annotations
 
 import json
+import socket
 import ssl
 import subprocess
 import urllib.request
@@ -192,7 +193,7 @@ def _fetch_repos_gitlab(source: GitSource) -> list[RepoInfo]:
     for repo in data:
         repos.append(
             RepoInfo(
-                name=repo["path"],
+                name=repo["path_with_namespace"],
                 clone_url=repo.get("http_url_to_repo", ""),
                 full_name=repo.get("path_with_namespace", repo["path"]),
             )
@@ -247,6 +248,7 @@ def clone_repo(repo: RepoInfo, source: GitSource, dry_run: bool = False) -> Clon
         )
 
     source.cloning_destination.mkdir(parents=True, exist_ok=True)
+    dest_dir.parent.mkdir(parents=True, exist_ok=True)
 
     cmd = ["git", "clone"]
     if not source.ssl_verify:
@@ -275,11 +277,19 @@ def clone_all_repos(
     # Warn about missing auth verification
     warn_missing_auth_verification(sources)
 
+    current_host = socket.gethostname()
     total_cloned = 0
     total_failed = 0
 
     for source in sources:
         if not source.enabled:
+            continue
+
+        if current_host in source.excluded_on_hosts:
+            if not quiet:
+                print(
+                    f"\n[dim]⊘[/dim] [cyan]Source:[/cyan] {source.name} (excluded on {current_host})"
+                )
             continue
 
         if not quiet:
@@ -297,7 +307,7 @@ def clone_all_repos(
             continue
 
         for repo in repos:
-            if repo.name in source.exclude:
+            if repo.name in source.exclude_repos:
                 if not quiet:
                     print(f"  [dim]⊘[/dim] {repo.name}: excluded")
                 continue

@@ -24,13 +24,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Support for GitHub, Forgejo, and GitLab APIs
   - `[[git_sources]]` TOML configuration section
   - Token-based authentication with proper URL embedding
-  - `exclude` option to skip certain repositories
+  - `exclude_repos` option to skip certain repositories
+  - `excluded_on_hosts` option to disable sources on certain hosts
   - `ssl_verify` option to disable SSL for local instances
 
 - **New Types** in `types.py`
   - `AuthType` enum: TOKEN, SSH, NONE
   - `RepoInfo` dataclass: name, clone_url, full_name
-  - `GitSource` dataclass: name, list_repos_url, auth_type, auth_token_path, cloning_destination, enabled, ssl_verify, exclude
+  - `GitSource` dataclass: name, list_repos_url, auth_type, auth_token_path, cloning_destination, enabled, ssl_verify, exclude_repos, excluded_on_hosts
 
 - **New Configuration Parsing** in `config.py`
   - `_parse_auth_type()` function
