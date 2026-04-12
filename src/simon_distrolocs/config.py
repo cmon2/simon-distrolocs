@@ -13,7 +13,7 @@ if sys.version_info >= (3, 11):
 else:
     import tomli as tomllib  # type: ignore[no-redef]
 
-from .types import AppConfig, ConfigMapping, DistroType, LinkMethod
+from .types import AppConfig, AuthType, ConfigMapping, DistroType, GitSource, LinkMethod
 
 
 class ConfigError(Exception):
@@ -232,3 +232,77 @@ def get_visualization_depth(config: AppConfig, mapping: ConfigMapping) -> int:
         return 0
 
     return distro_type.visualization_depth
+
+
+def _parse_auth_type(auth_str: str | None) -> AuthType:
+    """Parse an auth type string into an AuthType enum value.
+
+    Args:
+        auth_str: The auth type string from TOML (e.g., "token", "ssh", "none").
+
+    Returns:
+        The corresponding AuthType enum value (defaults to NONE if None).
+
+    Raises:
+        ConfigError: If the auth type string is not a valid AuthType value.
+    """
+    if auth_str is None:
+        return AuthType.NONE
+
+    try:
+        return AuthType(auth_str.lower())
+    except ValueError:
+        valid_values = [a.value for a in AuthType]
+        raise ConfigError(
+            f"Invalid auth_type '{auth_str}'. Valid values are: {valid_values}"
+        )
+
+
+def _parse_git_sources(toml_dict: dict[str, Any], parent_dir: Path) -> list[GitSource]:
+    """Parse [[git_sources]] section from TOML.
+
+    Args:
+        toml_dict: Parsed TOML dictionary.
+        parent_dir: The parent managed configs directory.
+
+    Returns:
+        List of GitSource objects.
+    """
+    sources: list[GitSource] = []
+    raw_sources = toml_dict.get("git_sources", [])
+
+    if isinstance(raw_sources, dict):
+        raw_sources = [raw_sources]
+
+    for item in raw_sources:
+        name = item.get("name", "")
+        list_repos_url = item.get("list_repos_url", "")
+        auth_type_str = item.get("auth_type")
+        auth_token_path_str = item.get("auth_token_path", "")
+        cloning_dest_str = item.get("cloning_destination", "")
+        enabled = item.get("enabled", True)
+        ssl_verify = item.get("ssl_verify", True)
+        exclude_raw = item.get("exclude", [])
+
+        if isinstance(exclude_raw, str):
+            exclude_raw = [exclude_raw]
+
+        auth_type = _parse_auth_type(auth_type_str)
+        auth_token_path = (
+            parent_dir / auth_token_path_str if auth_token_path_str else Path("")
+        )
+        cloning_destination = Path(cloning_dest_str) if cloning_dest_str else Path("")
+
+        source = GitSource(
+            name=name,
+            list_repos_url=list_repos_url,
+            auth_type=auth_type,
+            auth_token_path=auth_token_path,
+            cloning_destination=cloning_destination,
+            enabled=enabled,
+            ssl_verify=ssl_verify,
+            exclude=tuple(exclude_raw),
+        )
+        sources.append(source)
+
+    return sources

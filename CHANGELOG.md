@@ -1,0 +1,60 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.0.1] - 2026-04-12
+
+### Added
+
+- **Initial Release**: Core configuration distribution functionality
+  - TOML configuration parsing with `*simon-distrolocs.toml` discovery
+  - Host-specific mapping filtering via `socket.gethostname()`
+  - Sync status evaluation: Linked, Synced, Unsynced
+  - Rich tree visualization with color-coded status
+  - Symlink and Anchor link methods
+  - `--overwrite` and `--sync` flags for applying configurations
+  - `--dry-run` preview mode
+  - Filtering options: `--hide-linked`, `--hide-synced`, `--only-unsynced`
+
+- **Git Repository Cloning** (via `--repos-only`)
+  - `git_clone.py` module for discovering and cloning repositories
+  - Support for GitHub, Forgejo, and GitLab APIs
+  - `[[git_sources]]` TOML configuration section
+  - Token-based authentication with proper URL embedding
+  - `exclude` option to skip certain repositories
+  - `ssl_verify` option to disable SSL for local instances
+
+- **New Types** in `types.py`
+  - `AuthType` enum: TOKEN, SSH, NONE
+  - `RepoInfo` dataclass: name, clone_url, full_name
+  - `GitSource` dataclass: name, list_repos_url, auth_type, auth_token_path, cloning_destination, enabled, ssl_verify, exclude
+
+- **New Configuration Parsing** in `config.py`
+  - `_parse_auth_type()` function
+  - `_parse_git_sources()` function for parsing `[[git_sources]]` TOML section
+
+### Documentation
+
+- `requirements.md`: Combined requirements specification (replaces requirements.txt)
+- `README.md`: User-facing documentation with quick start guide
+- `AGENTS.md`: AI agent instructions for working on the project
+
+### Changes
+
+- Removed `requirements.txt` (merged into `requirements.md`)
+- Updated `__init__.py` version to 1.0.0 (display) while keeping actual version at 0.0.1
+
+---
+
+## [Unreleased]
+
+### Planned
+
+- Multiple TOML file merging
+- Bidirectional sync
+- Configuration templating
+- SSH key authentication for git sources
+- Exclude patterns for file discovery

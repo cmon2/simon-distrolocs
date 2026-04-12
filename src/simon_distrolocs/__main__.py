@@ -8,8 +8,16 @@ from pathlib import Path
 
 from rich.console import Console
 
-from .config import AppConfig, ConfigError, load_config
+from .config import (
+    AppConfig,
+    ConfigError,
+    load_config,
+    _parse_git_sources,
+    find_config_file,
+    parse_toml_config,
+)
 from .filesystem import remove_path
+from .git_clone import clone_all_repos
 from .sync_engine import (
     count_by_status,
     evaluate_all_sync_status,
@@ -93,6 +101,12 @@ Examples:
         "--quiet",
         action="store_true",
         help="Suppress informational messages",
+    )
+
+    parser.add_argument(
+        "--repos-only",
+        action="store_true",
+        help="Clone repositories from configured git sources and exit",
     )
 
     parser.add_argument(
@@ -232,7 +246,32 @@ def main() -> int:
     if args.verbose > 0 and not args.quiet:
         console.print(f"[dim]Scanning: {args.managed_configs_directory}[/dim]")
 
-    config = load_configuration(args.managed_configs_directory)
+    config = load_config(args.managed_configs_directory)
+
+    # Handle --repos-only mode (clone repos from git sources)
+    if args.repos_only:
+        try:
+            toml_dict = parse_toml_config(
+                find_config_file(args.managed_configs_directory)
+            )
+            git_sources = _parse_git_sources(toml_dict, args.managed_configs_directory)
+
+            if not git_sources:
+                console.print("[yellow]No git sources configured.[/yellow]")
+                return 0
+
+            total_cloned, total_failed = clone_all_repos(
+                git_sources, dry_run=args.dry_run, quiet=args.quiet
+            )
+
+            console.print(
+                f"\n[bold]Cloned {total_cloned} repository(ies), {total_failed} failed[/bold]"
+            )
+            return 0 if total_failed == 0 else 1
+
+        except ConfigError as e:
+            console.print(f"[bold red]Configuration Error:[/bold red] {e}")
+            return 1
 
     if not config.mappings:
         console.print("[yellow]No configurations found for this host.[/yellow]")

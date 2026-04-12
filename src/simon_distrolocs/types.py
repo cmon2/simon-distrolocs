@@ -6,6 +6,20 @@ from pathlib import Path
 from typing import Optional
 
 
+class AuthType(Enum):
+    """Authentication type for git sources.
+
+    Attributes:
+        TOKEN: Use a personal access token for authentication
+        SSH: Use SSH key authentication
+        NONE: No authentication (public repos only)
+    """
+
+    TOKEN = "token"
+    SSH = "ssh"
+    NONE = "none"
+
+
 class LinkMethod(Enum):
     """Defines how a managed config is linked to its destination.
 
@@ -97,3 +111,55 @@ class AppConfig:
     distro_types: dict[str, DistroType]
     mappings: list[ConfigMapping]
     all_mappings: list[ConfigMapping]
+
+
+@dataclass(frozen=True)
+class RepoInfo:
+    """Information about a repository from a git source.
+
+    Attributes:
+        name: The repository name.
+        clone_url: The URL to clone the repository.
+        full_name: The full name (owner/repo) of the repository.
+    """
+
+    name: str
+    clone_url: str
+    full_name: str
+
+
+@dataclass
+class GitSource:
+    """Configuration for a git source (GitHub, Forgejo, GitLab).
+
+    Attributes:
+        name: Human-readable name for this source.
+        list_repos_url: API URL to list repositories.
+        auth_type: How to authenticate with this source.
+        auth_token: Path to a file containing the authentication token.
+        cloning_destination: Directory where cloned repos will be placed.
+        enabled: Whether this source is active.
+        ssl_verify: Whether to verify SSL certificates.
+        exclude: List of repo names to skip.
+    """
+
+    name: str
+    list_repos_url: str
+    auth_type: AuthType
+    auth_token_path: Path
+    cloning_destination: Path
+    enabled: bool = True
+    ssl_verify: bool = True
+    exclude: tuple[str, ...] = field(default_factory=tuple)
+
+    def get_auth_token(self) -> str:
+        """Read the authentication token from the token file.
+
+        Returns:
+            The token string, or empty string if file doesn't exist.
+        """
+        try:
+            with open(self.auth_token_path) as f:
+                return f.read().strip()
+        except OSError:
+            return ""

@@ -1,24 +1,25 @@
-# Simon DistroLocs - Configuration Distribution Tool
+# Simon DistroLocs - Requirements Specification
 
-## Specification Document
-
-**Version**: 1.0 (Increment 1)  
+**Version**: 1.1.0  
 **Target OS**: Linux  
-**Python Version**: 3.11+ (uses `tomllib`), with fallback to `tomli` for 3.10
+**Python Version**: 3.10+ (uses `tomllib` for 3.11+, `tomli` fallback for 3.10)
 
 ---
 
 ## 1. Overview
 
-**Purpose**: A CLI tool to manage and distribute centralized configuration files/folders to system-specific destinations.
+### Purpose
+A CLI tool to manage and distribute centralized configuration files/folders to system-specific destinations, with integrated git repository cloning capabilities.
 
-**Core Functionality**: Scans a parent directory for a single `*simon-distrolocs.toml` configuration file, parses host-specific mappings, evaluates sync status, and visualizes the configuration hierarchy using Rich terminal formatting.
+### Core Functionality
+1. **Configuration Distribution**: Scans a parent directory for `*simon-distrolocs.toml`, parses host-specific mappings, evaluates sync status, and visualizes the configuration hierarchy using Rich terminal formatting.
+2. **Git Repository Cloning**: Discovers and clones repositories from configured git sources (GitHub, Forgejo, GitLab) based on `git_sources` TOML configuration.
 
 ---
 
 ## 2. Architecture
 
-### 2.1 Directory Structure
+### Directory Structure
 
 ```
 simon-distrolocs/
@@ -30,19 +31,26 @@ simon-distrolocs/
 │       ├── sync_engine.py       # Sync status evaluation
 │       ├── filesystem.py        # File operations (copy, compare)
 │       ├── visualization.py     # Rich tree rendering
-│       └── types.py             # Type definitions
+│       ├── types.py             # Type definitions
+│       └── git_clone.py         # Git repository cloning
 ├── requirements.txt
 ├── requirements.md              # This document
 └── pyproject.toml
 ```
 
-### 2.2 Data Flow
+### Data Flow (Configuration)
 
 ```
 CLI Input → Find TOML → Parse Config → Filter by Hostname → Evaluate Sync Status → Render Tree
     │           │            │               │                    │                    │
     ▼           ▼            ▼               ▼                    ▼                    ▼
  [Path]    [0-1 Files]   [TOML Dict]    [Host Configs]      [Sync States]        [Rich Tree]
+```
+
+### Data Flow (Git Clone)
+
+```
+CLI --repos-only → Find TOML → Parse git_sources → Fetch repos from APIs → Clone each repo
 ```
 
 ---
@@ -52,10 +60,10 @@ CLI Input → Find TOML → Parse Config → Filter by Hostname → Evaluate Syn
 ### 3.1 File Discovery
 
 - Recursively search parent directory for files matching `*simon-distrolocs.toml`
-- **Constraint**: If multiple matches found, abort immediately with error
+- **Constraint**: If multiple matches found, abort with error (unless identical content, then use first)
 - Use `tomllib` (Python 3.11+) or `tomli` (Python 3.10)
 
-### 3.2 TOML Structure
+### 3.2 Configuration Mappings
 
 ```toml
 [distro_types.workstation]
@@ -78,34 +86,59 @@ distro_type = "workstation"
 method = "symlink"
 
 [[mapping]]
-name = "Vim Config"
-source = "configs/vim"
-target = "~/.vim"
-distro_type = "workstation"
-
-[[mapping]]
-name = "System Scripts"
-source = "scripts/"
-target = "/usr/local/bin/"
-distro_type = "server"
-method = "anchor"
-```
-
-### 3.3 Host Filtering
-
-- Use `socket.gethostname()` to get current machine name
-- Configuration `[[mapping]]` entries may have optional `hosts` array
-- If `hosts` is specified, mapping only applies if current hostname matches
-- If `hosts` is omitted, mapping applies to all hosts
-
-```toml
-[[mapping]]
 name = "Work Laptop Config"
 source = "laptop/config"
 target = "~/.config/laptop"
 # Only apply this mapping on these hosts
 hosts = ["work-laptop", "work-laptop.local"]
 ```
+
+### 3.3 Git Sources Configuration
+
+```toml
+[[git_sources]]
+name = "GitHub Public"
+list_repos_url = "https://api.github.com/users/cmon2/repos"
+auth_type = "token"
+auth_token_path = "02_configs/git/GitHub/token"
+cloning_destination = "git-repos/"
+enabled = true
+ssl_verify = true
+exclude = ["simon_ide"]
+
+[[git_sources]]
+name = "Forgejo Private"
+list_repos_url = "http://localhost:3000/api/v1/users/simon/repos"
+auth_type = "token"
+auth_token_path = "02_configs/git/Forgejo/token"
+cloning_destination = "git-repos/"
+enabled = true
+ssl_verify = false
+exclude = []
+
+[[git_sources]]
+name = "GitLab"
+list_repos_url = "https://git.hmg/api/v4/projects"
+auth_type = "token"
+auth_token_path = "02_configs/git/Gitlab/token"
+cloning_destination = "git-repos/"
+enabled = true
+ssl_verify = true
+exclude = []
+```
+
+#### Git Source Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Human-readable name for the source |
+| `list_repos_url` | string | Yes | API URL to list repositories |
+| `auth_type` | string | Yes | `token`, `ssh`, or `none` |
+| `auth_token_path` | string | Yes (if auth_type=token) | Path to file containing the token |
+| `cloning_destination` | string | Yes | Directory where cloned repos will be placed |
+| `enabled` | boolean | No | Whether this source is active (default: true) |
+| `ssl_verify` | boolean | No | Whether to verify SSL certificates (default: true) |
+| `exclude` | array | No | List of repo names to skip |
 
 ---
 
@@ -115,22 +148,16 @@ hosts = ["work-laptop", "work-laptop.local"]
 
 | Status | Condition | Display |
 |--------|-----------|---------|
-| **Linked** | Valid symlink exists at target, pointing to source | `[link]` (cyan) |
+| **Linked** | Valid symlink exists at target, pointing to source | `[linked]` (cyan) |
 | **Synced** | File exists at both locations, contents match exactly | `[synced]` (green) |
 | **Unsynced** | File missing, or contents differ | `[unsynced]` (red) |
 
 ### 4.2 LinkMethod Variants
 
-The `method` field in `[[mapping]]` controls how source and target are linked:
-
 | Method | Behavior | Sync Status | Use Case |
 |--------|----------|-------------|----------|
-| **symlink** (default) | Creates symbolic link from target → source | Linked | Configs that change frequently; edits reflect immediately |
-| **anchor** | Hard copy of source to target (snapshot) | Synced | Stable configs; a fixed point you can return to |
-
-**Behavior Differences**:
-- **symlink**: Target becomes a symlink. Changes to source are immediately visible at target. If source is deleted, target becomes dangling.
-- **anchor**: Target becomes a independent copy. Source changes do NOT propagate. Useful for "pinning" a known-good configuration.
+| **symlink** (default) | Creates symbolic link from target → source | Linked | Configs that change frequently |
+| **anchor** | Hard copy of source to target (snapshot) | Synced | Stable configs; fixed point |
 
 ### 4.3 Status Evaluation Logic
 
@@ -145,11 +172,6 @@ The `method` field in `[[mapping]]` controls how source and target are linked:
    - Unsynced (missing)
 ```
 
-### 4.4 Content Comparison
-
-- **Files**: Compare byte content using `hashlib.sha256()`
-- **Directories**: Compare by hashing sorted file list + content recursively
-
 ---
 
 ## 5. CLI Interface
@@ -157,35 +179,63 @@ The `method` field in `[[mapping]]` controls how source and target are linked:
 ### 5.1 Command Structure
 
 ```bash
+simon-distrolocs <managed_configs_directory> [OPTIONS]
+
+# Or using module syntax:
 python -m simon_distrolocs <managed_configs_directory> [OPTIONS]
-
-Positional Arguments:
-  managed_configs_directory    Parent directory containing managed configs and TOML file
-
-Options:
-  --overwrite                  Overwrite destination files with managed versions
-  --sync                      Sync all unsynced configs (alias for --overwrite)
-  --dry-run                   Show what would be done without making changes
-  --hide-linked               Hide Linked items from output
-  --hide-synced               Hide Synced items from output
-  --only-unsynced             Show only Unsynced items
-  -v, --verbose               Increase verbosity
-  -q, --quiet                 Suppress informational messages
-  --help                      Show help message
 ```
 
-### 5.2 Exit Codes
+### 5.2 Options
+
+| Option | Description |
+|--------|-------------|
+| `--overwrite` | Overwrite destination files with managed versions |
+| `--sync` | Sync all unsynced configs (alias for --overwrite) |
+| `--dry-run` | Show what would be done without making changes |
+| `--hide-linked` | Hide Linked items from output |
+| `--hide-synced` | Hide Synced items from output |
+| `--only-unsynced` | Show only Unsynced items |
+| `--repos-only` | Clone repositories from configured git sources and exit |
+| `-v, --verbose` | Increase verbosity (can be repeated) |
+| `-q, --quiet` | Suppress informational messages |
+| `--version` | Show version number |
+
+### 5.3 Exit Codes
 
 - `0`: Success
-- `1`: Configuration error (no TOML found, multiple TOMLs, parse error)
+- `1`: Configuration error or git clone failure
 - `2`: File system error (permission denied, path not found)
-- `3`: Overwrite cancelled by user
 
 ---
 
-## 6. Visualization
+## 6. Git Repository Cloning
 
-### 6.1 Rich Tree Output
+### 6.1 Source Types
+
+| Source | API Pattern | Auth Header |
+|--------|-------------|-------------|
+| **GitHub** | `api.github.com` or `/orgs/` | `Authorization: token {token}` |
+| **GitLab** | `gitlab` or `git.hmg` | `PRIVATE-TOKEN: {token}` with `oauth2:` prefix |
+| **Forgejo** | Default (fallback) | `Authorization: token {token}` |
+
+### 6.2 Clone URL Building
+
+- GitHub: Uses token directly in URL
+- GitLab: Prefixes token with `oauth2:` before embedding in URL
+- Forgejo: Uses token directly in URL
+
+### 6.3 Clone Behavior
+
+- Skips repos that already exist locally
+- Respects `exclude` list to skip certain repositories
+- Supports `--dry-run` to preview what would be cloned
+- Disables SSL verification when `ssl_verify = false`
+
+---
+
+## 7. Visualization
+
+### Rich Tree Output
 
 ```
 simon-distrolocs [cyan]●[/cyan] Managed Configurations on [yellow]workstation[/yellow]
@@ -201,91 +251,32 @@ simon-distrolocs [cyan]●[/cyan] Managed Configurations on [yellow]workstation[
 Legend:
   [green][synced][/green]    Files match exactly
   [yellow][unsynced][/yellow] Files differ or missing
-  [cyan][link][/cyan]        Valid symlink to managed source
+  [cyan][linked][/cyan]      Valid symlink to managed source
 ```
 
-### 6.2 Visualization Depth
-
-- `distro_type.visualizationDepth` controls how deep the tree expands target paths
-- `0`: Show only the target path (no expansion)
-- `1`: Show target path + one level of subdirectories
-- `2+`: Show target path + N levels
-
 ---
 
-## 7. File Operations
-
-### 7.1 execute_sync Behavior
-
-When `--overwrite` or `--sync` is specified, `execute_sync()` performs the appropriate action based on the mapping's `method`:
-
-#### For **symlink** method:
-1. If target exists and is a symlink pointing elsewhere: Remove symlink
-2. If target exists (file/dir/symlink to same source): Remove target
-3. Create symlink: `target → source`
-4. Resulting status: **Linked**
-
-#### For **anchor** method:
-1. If target exists: Remove recursively (file, directory, or symlink)
-2. Perform hard copy: `source → target` (preserving permissions)
-3. Resulting status: **Synced** (independent snapshot)
-
-#### Summary by Method:
-
-| Method | Action | Result Status |
-|--------|--------|---------------|
-| symlink | `os.symlink(source, target)` | Linked |
-| anchor | `safe_execute_copy(source, target)` | Synced |
-
-**Synced** configs: No action required (already matching)
-**Linked** configs: No action required (symlink already exists and points to correct source)
-
-### 7.2 Directory Copying
-
-- Use `shutil.copytree()` for directories
-- Preserve file permissions and timestamps
-- Handle existing files by removing first
-
----
-
-## 8. Error Handling
-
-### 8.1 TOML Discovery Errors
-
-| Scenario | Behavior |
-|----------|----------|
-| No `*simon-distrolocs.toml` found | Error: "No configuration file found in {directory}" |
-| Multiple TOML files found | Error: "Multiple configuration files found. Merge support coming in Increment 2." |
-| TOML parse error | Error: "Failed to parse TOML: {detailed error}" |
-
-### 8.2 File System Errors
-
-| Scenario | Behavior |
-|----------|----------|
-| Source path missing | Warning: "Source path not found: {path}" (skip config) |
-| Permission denied (read) | Error: "Cannot read source: {path}" |
-| Permission denied (write) | Error: "Cannot write to destination: {path}" |
-| Target is symlink | Skip with warning (symlinks managed separately) |
-
----
-
-## 9. Type Definitions
+## 8. Type Definitions
 
 ```python
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Optional
 
 class LinkMethod(Enum):
-    """Defines how a managed config is linked to its destination."""
-    SYMLINK = "symlink"  # Default - creates symbolic links
-    ANCHOR = "anchor"    # Creates a fixed hard copy without further sync
+    SYMLINK = "symlink"  # Default
+    ANCHOR = "anchor"    # Hard copy
 
 class SyncStatus(Enum):
     LINKED = "linked"
     SYNCED = "synced"
     UNSYNCED = "unsynced"
+
+class AuthType(Enum):
+    TOKEN = "token"
+    SSH = "ssh"
+    NONE = "none"
 
 @dataclass(frozen=True)
 class DistroType:
@@ -295,51 +286,73 @@ class DistroType:
 @dataclass(frozen=True)
 class ConfigMapping:
     name: str
-    source: Path  # Relative to managed configs directory
-    target: Path  # Absolute or ~ path on system
-    distro_type: Optional[str]
-    hosts: tuple[str, ...]  # Empty tuple = all hosts
-    method: Optional[LinkMethod] = None  # Link method (default: SYMLINK)
+    source: Path
+    target: Path
+    distro_type: Optional[str] = None
+    hosts: tuple[str, ...] = field(default_factory=tuple)
+    method: Optional[LinkMethod] = None
 
 @dataclass(frozen=True)
-class SyncState:
-    mapping: ConfigMapping
-    status: SyncStatus
-    source_exists: bool
-    target_exists: bool
-    is_symlink: bool
-    method: LinkMethod  # The link method used for this mapping
+class RepoInfo:
+    name: str
+    clone_url: str
+    full_name: str
+
+@dataclass
+class GitSource:
+    name: str
+    list_repos_url: str
+    auth_type: AuthType
+    auth_token_path: Path
+    cloning_destination: Path
+    enabled: bool = True
+    ssl_verify: bool = True
+    exclude: tuple[str, ...] = field(default_factory=tuple)
+
+    def get_auth_token(self) -> str:
+        """Read authentication token from token file."""
+        try:
+            with open(self.auth_token_path) as f:
+                return f.read().strip()
+        except OSError:
+            return ""
 ```
 
 ---
 
-## 10. Dependencies
+## 9. Dependencies
 
+### Runtime
 ```
 rich>=13.0.0
 ```
 
-For Python < 3.11:
+### Python Version Compatibility
+- Python 3.11+: Uses built-in `tomllib`
+- Python 3.10: Uses `tomli>=2.0.0` as fallback
+
+### Optional Dependencies
 ```
-tomli>=2.0.0
+tomli>=2.0.0;python_version<'3.11'
 ```
 
 ---
 
-## 11. Constraints
+## 10. Constraints
 
 1. **Linux-only**: Uses Linux path conventions, symlink behaviors
-2. **Single TOML**: Multiple TOML merging deferred to Increment 2
+2. **Single TOML**: Multiple TOML merging deferred to future
 3. **Typed Python**: All code uses type hints, dataclasses where appropriate
 4. **Pure functions**: Business logic prefers pure functions over mutation
 5. **Path handling**: All file paths via `pathlib.Path`
+6. **No sensitive data in public repos**: Tokens/keys must not be committed
 
 ---
 
-## 12. Future Considerations (Increment 2+)
+## 11. Future Considerations
 
 - Multiple TOML file merging
 - Bidirectional sync
-- Dry-run mode for overwrite
 - Configuration templating
 - Exclude patterns for file discovery
+- SSH key authentication for git sources
