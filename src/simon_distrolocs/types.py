@@ -99,6 +99,28 @@ class SyncState:
 
 
 @dataclass(frozen=True)
+class RepoDuplication:
+    """Configuration for duplicating a repository to Forgejo.
+
+    Attributes:
+        name: Unique name to reference this duplication (used by CLI).
+        source_type: Type of source (gitlab, github, forgejo) for auth lookup.
+        source_url: The git URL of the source repository to duplicate.
+        forgejo_target: The base name for the repo on Forgejo (without namespace).
+        target_clone_locations: Tuple of directory paths where the duplicated
+            repo should be cloned after creation.
+        enabled: Whether this duplication is active.
+    """
+
+    name: str
+    source_type: str
+    source_url: str
+    forgejo_target: str
+    target_clone_locations: tuple[str, ...]
+    enabled: bool = True
+
+
+@dataclass(frozen=True)
 class AppConfig:
     """The parsed and validated application configuration.
 
@@ -106,11 +128,13 @@ class AppConfig:
         distro_types: Dictionary of DistroType definitions by name.
         mappings: List of configuration mappings relevant to the current host.
         all_mappings: All mappings (including filtered out by host) for reference.
+        duplications: List of RepoDuplication configurations.
     """
 
     distro_types: dict[str, DistroType]
     mappings: list[ConfigMapping]
     all_mappings: list[ConfigMapping]
+    duplications: tuple[RepoDuplication, ...] = field(default_factory=tuple)
 
 
 @dataclass(frozen=True)

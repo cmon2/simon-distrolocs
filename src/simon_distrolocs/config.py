@@ -13,7 +13,15 @@ if sys.version_info >= (3, 11):
 else:
     import tomli as tomllib  # type: ignore[no-redef]
 
-from .types import AppConfig, AuthType, ConfigMapping, DistroType, GitSource, LinkMethod
+from .types import (
+    AppConfig,
+    AuthType,
+    ConfigMapping,
+    DistroType,
+    GitSource,
+    LinkMethod,
+    RepoDuplication,
+)
 
 
 class ConfigError(Exception):
@@ -199,6 +207,7 @@ def load_config(parent_dir: Path) -> AppConfig:
 
     distro_types = _parse_distro_types(toml_dict)
     all_mappings = _parse_mappings(toml_dict, parent_dir)
+    duplications = _parse_duplications(toml_dict)
 
     current_host = socket.gethostname()
 
@@ -211,6 +220,7 @@ def load_config(parent_dir: Path) -> AppConfig:
         distro_types=distro_types,
         mappings=filtered_mappings,
         all_mappings=all_mappings,
+        duplications=duplications,
     )
 
 
@@ -316,3 +326,43 @@ def _parse_git_sources(toml_dict: dict[str, Any], config_dir: Path) -> list[GitS
         sources.append(source)
 
     return sources
+
+
+def _parse_duplications(toml_dict: dict[str, Any]) -> tuple[RepoDuplication, ...]:
+    """Parse [[duplication]] sections from TOML.
+
+    Args:
+        toml_dict: Parsed TOML dictionary.
+
+    Returns:
+        Tuple of RepoDuplication objects.
+    """
+    duplications: list[RepoDuplication] = []
+    raw_duplications = toml_dict.get("duplication", [])
+
+    if isinstance(raw_duplications, dict):
+        raw_duplications = [raw_duplications]
+
+    for item in raw_duplications:
+        name = item.get("name", "")
+        source_type = item.get("source_type", "")
+        source_url = item.get("source_url", "")
+        forgejo_target = item.get("forgejo_target", "")
+        clone_locations_raw = item.get("target_clone_locations", [])
+        enabled = item.get("enabled", True)
+
+        if isinstance(clone_locations_raw, str):
+            clone_locations_raw = [clone_locations_raw]
+
+        duplications.append(
+            RepoDuplication(
+                name=name,
+                source_type=source_type,
+                source_url=source_url,
+                forgejo_target=forgejo_target,
+                target_clone_locations=tuple(clone_locations_raw),
+                enabled=enabled,
+            )
+        )
+
+    return tuple(duplications)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import subprocess
 import sys
 from pathlib import Path
 
@@ -107,6 +108,18 @@ Examples:
         "--repos-only",
         action="store_true",
         help="Clone repositories from configured git sources and exit",
+    )
+
+    parser.add_argument(
+        "--duplicate",
+        metavar="NAME",
+        help="Duplicate a repository to Forgejo (requires --branch)",
+    )
+
+    parser.add_argument(
+        "--branch",
+        metavar="BRANCH",
+        help="Branch to duplicate (required with --duplicate)",
     )
 
     parser.add_argument(
@@ -270,6 +283,34 @@ def main() -> int:
 
         except ConfigError as e:
             console.print(f"[bold red]Configuration Error:[/bold red] {e}")
+            return 1
+
+    # Handle --duplicate mode (duplicate repo to Forgejo)
+    if args.duplicate:
+        if not args.branch:
+            console.print(
+                "[bold red]Error: --branch is required when using --duplicate[/bold red]"
+            )
+            return 1
+
+        script_path = (
+            Path(__file__).parent.parent.parent / "scripts" / "duplicate_repo.py"
+        )
+
+        try:
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(script_path),
+                    str(args.managed_configs_directory),
+                    args.duplicate,
+                    args.branch,
+                ],
+                cwd=args.managed_configs_directory,
+            )
+            return result.returncode
+        except Exception as e:
+            console.print(f"[bold red]Error running duplicate script:[/bold red] {e}")
             return 1
 
     if not config.mappings:
