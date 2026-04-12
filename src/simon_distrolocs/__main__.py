@@ -251,10 +251,9 @@ def main() -> int:
     # Handle --repos-only mode (clone repos from git sources)
     if args.repos_only:
         try:
-            toml_dict = parse_toml_config(
-                find_config_file(args.managed_configs_directory)
-            )
-            git_sources = _parse_git_sources(toml_dict, args.managed_configs_directory)
+            config_file = find_config_file(args.managed_configs_directory)
+            toml_dict = parse_toml_config(config_file)
+            git_sources = _parse_git_sources(toml_dict, config_file.parent)
 
             if not git_sources:
                 console.print("[yellow]No git sources configured.[/yellow]")

@@ -202,26 +202,18 @@ Simon DistroLocs can clone repositories from configured git sources using the `-
 
 Add `[[git_sources]]` to your TOML:
 
+**Note:** `auth_token_path` and `cloning_destination` are resolved relative to the current working directory (repo root), not the TOML file location.
+
 ```toml
 [[git_sources]]
-name = "GitHub"
-list_repos_url = "https://api.github.com/users/cmon2/repos"
+name = "GitLab"
+list_repos_url = "https://git.hmg/api/v4/projects?membership=true"
 auth_type = "token"
-auth_token_path = "02_configs/git/GitHub/token"
-cloning_destination = "git-repos/"
-enabled = true
-ssl_verify = true
-exclude = []
-
-[[git_sources]]
-name = "Forgejo"
-list_repos_url = "http://localhost:3000/api/v1/users/simon/repos"
-auth_type = "token"
-auth_token_path = "02_configs/git/Forgejo/token"
+auth_token_path = "02_configs/git/Gitlab/token"
 cloning_destination = "git-repos/"
 enabled = true
 ssl_verify = false
-exclude = ["simon_ide"]
+exclude = []
 ```
 
 ### Supported Sources

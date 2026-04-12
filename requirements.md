@@ -123,9 +123,11 @@ auth_type = "token"
 auth_token_path = "02_configs/git/Gitlab/token"
 cloning_destination = "git-repos/"
 enabled = true
-ssl_verify = true
+ssl_verify = false
 exclude = []
 ```
+
+**Note:** `auth_token_path` and `cloning_destination` are resolved relative to the current working directory (repo root), not the TOML file location.
 
 #### Git Source Fields
 

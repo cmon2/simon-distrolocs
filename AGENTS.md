@@ -71,6 +71,8 @@ hosts = ["hostname"]          # Optional: empty = all hosts
 
 ### Git Sources Structure
 
+**Note:** `auth_token_path` and `cloning_destination` are resolved relative to the current working directory (repo root), not the TOML file location.
+
 ```toml
 [[git_sources]]
 name = "Source Name"

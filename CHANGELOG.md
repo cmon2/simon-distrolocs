@@ -51,10 +51,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Planned
+### Fixed
 
-- Multiple TOML file merging
-- Bidirectional sync
-- Configuration templating
-- SSH key authentication for git sources
-- Exclude patterns for file discovery
+- **Git source path resolution**: `auth_token_path` and `cloning_destination` now correctly resolved relative to cwd (repo root), not the TOML config directory
+- **GitLab SSL verification**: Updated example to use `ssl_verify = false` for self-signed certs
+
+### Documentation
+
+- **Path resolution docs**: Added note that git source paths are resolved relative to cwd
+- **GitLab ssl_verify example**: Changed from `true` to `false` in requirements.md
+
+---
+
+## [0.0.1] - 2026-04-12

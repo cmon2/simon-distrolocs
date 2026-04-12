@@ -258,12 +258,13 @@ def _parse_auth_type(auth_str: str | None) -> AuthType:
         )
 
 
-def _parse_git_sources(toml_dict: dict[str, Any], parent_dir: Path) -> list[GitSource]:
+def _parse_git_sources(toml_dict: dict[str, Any], config_dir: Path) -> list[GitSource]:
     """Parse [[git_sources]] section from TOML.
 
     Args:
         toml_dict: Parsed TOML dictionary.
-        parent_dir: The parent managed configs directory.
+        config_dir: The directory containing the TOML config file (unused for git sources,
+            kept for API compatibility - paths are resolved relative to cwd).
 
     Returns:
         List of GitSource objects.
@@ -273,6 +274,9 @@ def _parse_git_sources(toml_dict: dict[str, Any], parent_dir: Path) -> list[GitS
 
     if isinstance(raw_sources, dict):
         raw_sources = [raw_sources]
+
+    # Resolve git source paths relative to cwd (repo root), not config_dir
+    repo_root = Path.cwd()
 
     for item in raw_sources:
         name = item.get("name", "")
@@ -289,9 +293,11 @@ def _parse_git_sources(toml_dict: dict[str, Any], parent_dir: Path) -> list[GitS
 
         auth_type = _parse_auth_type(auth_type_str)
         auth_token_path = (
-            parent_dir / auth_token_path_str if auth_token_path_str else Path("")
+            repo_root / auth_token_path_str if auth_token_path_str else Path("")
         )
-        cloning_destination = Path(cloning_dest_str) if cloning_dest_str else Path("")
+        cloning_destination = (
+            repo_root / cloning_dest_str if cloning_dest_str else Path("")
+        )
 
         source = GitSource(
             name=name,
