@@ -16,11 +16,95 @@ from typing import Optional
 
 from .types import AuthType, GitSource, RepoInfo
 
+# Verification script paths relative to distrolocs root
+VERIFY_SCRIPTS_DIR = Path(__file__).parent.parent.parent / "scripts" / "verify"
+
+VERIFICATION_SCRIPTS = {
+    "github": {
+        "ssh": "verify_github_ssh_auth.sh",
+        "token": "verify_github_token_auth.sh",  # future
+    },
+    "forgejo": {
+        "token": "verify_forgejo_token_auth.sh",
+        "ssh": "verify_forgejo_ssh_auth.sh",  # future
+    },
+    "gitlab": {
+        "token": "verify_gitlab_token_auth.sh",
+        "ssh": "verify_gitlab_ssh_auth.sh",  # future
+    },
+}
+
 
 class CloneError(Exception):
     """Raised when repository cloning fails."""
 
     pass
+
+
+def check_auth_verification(source: GitSource) -> tuple[bool, str]:
+    """Check if a verification script exists for a git source.
+
+    Args:
+        source: The GitSource to check.
+
+    Returns:
+        Tuple of (has_verification, message).
+    """
+    # Determine the source type from URL
+    url_lower = source.list_repos_url.lower()
+
+    if "github.com" in url_lower:
+        source_type = "github"
+    elif "gitlab" in url_lower or "git.hmg" in url_lower:
+        source_type = "gitlab"
+    else:
+        source_type = "forgejo"
+
+    # Determine auth method
+    auth_method = source.auth_type.value if source.auth_type else "token"
+
+    # Get the expected verification script
+    scripts_for_source = VERIFICATION_SCRIPTS.get(source_type, {})
+    script_name = scripts_for_source.get(auth_method)
+
+    if not script_name:
+        return False, f"No verification script defined for {source_type}/{auth_method}"
+
+    script_path = VERIFY_SCRIPTS_DIR / script_name
+
+    if script_path.exists():
+        return True, f"Verification script found: {script_path}"
+    else:
+        return False, f"Verification script not found: {script_path}"
+
+
+def warn_missing_auth_verification(sources: list[GitSource]) -> None:
+    """Print warnings for git sources without verification scripts.
+
+    Args:
+        sources: List of GitSources to check.
+    """
+    print("\n[yellow]Checking auth verification for git sources...[/yellow]")
+
+    has_warnings = False
+    for source in sources:
+        if not source.enabled:
+            continue
+
+        has_verification, message = check_auth_verification(source)
+
+        if has_verification:
+            print(f"  [green]✓[/green] {source.name}: {message}")
+        else:
+            print(f"  [yellow]![/yellow] {source.name}: {message}")
+            has_warnings = True
+
+    if has_warnings:
+        print(
+            "\n[yellow]Warning: Some git sources don't have auth verification scripts.[/yellow]\n"
+            "This means authentication can't be automatically verified before cloning.\n"
+            "Consider adding verification scripts to scripts/verify/"
+        )
 
 
 @dataclass
@@ -188,6 +272,9 @@ def clone_all_repos(
     sources: list[GitSource], dry_run: bool = False, quiet: bool = False
 ) -> tuple[int, int]:
     """Clone repositories from all enabled sources."""
+    # Warn about missing auth verification
+    warn_missing_auth_verification(sources)
+
     total_cloned = 0
     total_failed = 0
 
