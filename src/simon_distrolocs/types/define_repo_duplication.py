@@ -17,6 +17,8 @@ class RepoDuplication:
         target_clone_locations: Tuple of directory paths where the duplicated
             repo should be cloned after creation.
         enabled: Whether this duplication is active.
+        post_clone_scripts: Tuple of script paths to execute after cloning to each
+            target location. Each script receives the clone destination as argument.
     """
 
     name: str
@@ -25,3 +27,4 @@ class RepoDuplication:
     forgejo_target: str
     target_clone_locations: tuple[str, ...]
     enabled: bool = True
+    post_clone_scripts: tuple[str, ...] = field(default_factory=tuple)

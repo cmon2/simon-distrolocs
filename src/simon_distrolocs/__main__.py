@@ -125,6 +125,12 @@ Examples:
     )
 
     parser.add_argument(
+        "--list-duplications",
+        action="store_true",
+        help="List all configured repository duplications and exit",
+    )
+
+    parser.add_argument(
         "--version",
         action="version",
         version="%(prog)s 1.0.0",
@@ -291,6 +297,42 @@ def main() -> int:
             clog("error", f"Configuration error: {e}")
             return 1
 
+    # Handle --list-duplications mode
+    if args.list_duplications:
+        try:
+            config_path = find_config_file(args.managed_configs_directory)
+            toml_dict = parse_toml_config(config_path)
+            duplications = parse_duplications(toml_dict)
+
+            if not duplications:
+                cprint("info", "[yellow]No duplications configured.[/yellow]")
+                return 0
+
+            cprint("info", "[bold]Configured Repository Duplications:[/bold]\n")
+            for dup in duplications:
+                enabled_str = (
+                    "[green]enabled[/green]" if dup.enabled else "[dim]disabled[/dim]"
+                )
+                cprint("info", f"  [cyan]{dup.name}[/cyan] ({enabled_str})")
+                cprint("info", f"    Source: {dup.source_url}")
+                cprint("info", f"    Forgejo target: {dup.forgejo_target}")
+                cprint(
+                    "info",
+                    f"    Clone locations: {', '.join(dup.target_clone_locations)}",
+                )
+                if dup.post_clone_scripts:
+                    cprint(
+                        "info",
+                        f"    Post-clone scripts: {', '.join(dup.post_clone_scripts)}",
+                    )
+                cprint("info", "")
+            return 0
+
+        except ConfigError as e:
+            cprint("error", f"[bold red]Configuration Error:[/bold red] {e}")
+            clog("error", f"Configuration error: {e}")
+            return 1
+
     # Handle --duplicate mode (duplicate repo to Forgejo)
     if args.duplicate:
         if not args.branch:
@@ -321,6 +363,7 @@ def main() -> int:
                 branch=args.branch,
                 clone_locations=duplication.target_clone_locations,
                 config_dir=args.managed_configs_directory,
+                post_clone_scripts=duplication.post_clone_scripts,
             )
             cprint("success", "[green]✓ Duplication complete![/green]")
             return 0

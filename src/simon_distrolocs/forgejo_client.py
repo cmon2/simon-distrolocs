@@ -14,6 +14,8 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+from cmon2lib import cprint, clog
+
 from .parsing import DuplicateError
 
 logger = logging.getLogger(__name__)
@@ -30,6 +32,22 @@ def _get_git_env() -> dict:
         **os.environ,
         "GIT_SSH_COMMAND": f"ssh -F {ssh_config_path} -o PreferredAuthentications=publickey",
     }
+
+
+def _get_simon_ide_dir() -> Path:
+    """Get the simon_ide directory path.
+
+    The simon-distrolocs project is located at:
+    simon_ide/06_agents_working_directory/simon-distrolocs/
+
+    So we go up 3 levels from this file (src/simon_distrolocs/forgejo_client.py).
+
+    Returns:
+        Path to the simon_ide directory.
+    """
+    # This file is at src/simon_distrolocs/forgejo_client.py
+    # Go up: forgejo_client.py -> simon_distrolocs/ -> src/ -> project root
+    return Path(__file__).resolve().parent.parent.parent.parent
 
 
 def _get_ssl_context() -> ssl.SSLContext:
@@ -266,6 +284,7 @@ def duplicate_repository(
     branch: str,
     clone_locations: tuple[str, ...],
     config_dir: Path,
+    post_clone_scripts: tuple[str, ...] = (),
 ) -> None:
     """Duplicate a repository to Forgejo and clone to target locations.
 
@@ -276,6 +295,7 @@ def duplicate_repository(
         branch: Branch to duplicate.
         clone_locations: Tuple of paths to clone the Forgejo repo to.
         config_dir: Directory containing the TOML config file.
+        post_clone_scripts: Tuple of script paths to execute after cloning.
 
     Raises:
         DuplicateError: If duplication fails.
@@ -432,6 +452,46 @@ def duplicate_repository(
                 env=_get_git_env(),
             )
             logger.info(f"  ✓ Cloned successfully")
+
+            # Run post-clone scripts if configured
+            if post_clone_scripts:
+                cprint(
+                    "info",
+                    f"\n[cyan]Running post-clone scripts for {dest_path}...[/cyan]",
+                )
+                for script_path_str in post_clone_scripts:
+                    script_path = _get_simon_ide_dir() / script_path_str
+                    if not script_path.exists():
+                        cprint(
+                            "warning",
+                            f"  [yellow]![/yellow] Script not found: {script_path}",
+                        )
+                        continue
+
+                    cprint("info", f"  [cyan]Running {script_path.name}...[/cyan]")
+                    try:
+                        result = subprocess.run(
+                            [str(script_path), str(dest_path)],
+                            check=True,
+                            capture_output=True,
+                            text=True,
+                            timeout=300,
+                        )
+                        if result.stdout:
+                            clog("debug", result.stdout)
+                        cprint(
+                            "success",
+                            f"  [green]✓[/green] {script_path.name} completed",
+                        )
+                    except subprocess.CalledProcessError as e:
+                        cprint(
+                            "error",
+                            f"  [red]✗[/red] {script_path.name} failed: {e.stderr}",
+                        )
+                        clog(
+                            "error",
+                            f"Post-clone script failed: {script_path} - {e.stderr}",
+                        )
 
         logger.info("✓ Duplication complete!")
         logger.info(f"  Forgejo repo: {forgejo_clone_url}")

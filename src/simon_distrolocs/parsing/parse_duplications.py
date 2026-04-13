@@ -29,9 +29,12 @@ def parse_duplications(toml_dict: dict[str, Any]) -> tuple[RepoDuplication, ...]
         forgejo_target = item.get("forgejo_target", "")
         clone_locations_raw = item.get("target_clone_locations", [])
         enabled = item.get("enabled", True)
+        post_clone_scripts_raw = item.get("post_clone_scripts", [])
 
         if isinstance(clone_locations_raw, str):
             clone_locations_raw = [clone_locations_raw]
+        if isinstance(post_clone_scripts_raw, str):
+            post_clone_scripts_raw = [post_clone_scripts_raw]
 
         duplications.append(
             RepoDuplication(
@@ -41,6 +44,7 @@ def parse_duplications(toml_dict: dict[str, Any]) -> tuple[RepoDuplication, ...]
                 forgejo_target=forgejo_target,
                 target_clone_locations=tuple(clone_locations_raw),
                 enabled=enabled,
+                post_clone_scripts=tuple(post_clone_scripts_raw),
             )
         )
 
