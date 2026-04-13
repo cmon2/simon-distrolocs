@@ -22,40 +22,37 @@ def build_source_clone_url(source_url: str, source_type: str) -> str:
     if source_type.lower() == "gitlab":
         # Try to find config in current directory
         try:
-            from ..config import find_config_file, parse_toml_config
+            from ..assemble_config import find_config_file
+            from ..parsing import parse_git_sources
+            from ..parsing.parse_toml import parse_toml_config
 
             config_path = find_config_file(Path.cwd())
-        except Exception:
-            return source_url
-
-        try:
             toml_dict = parse_toml_config(config_path)
         except Exception:
             return source_url
 
-        git_sources = toml_dict.get("git_sources", [])
-        if isinstance(git_sources, dict):
-            git_sources = [git_sources]
+        try:
+            git_sources = parse_git_sources(toml_dict)
+        except Exception:
+            return source_url
 
+        # Find GitLab source
+        gitlab_source = None
         for source in git_sources:
-            source_name = source.get("name", "").lower()
-            if "gitlab" in source_name or "git.hmg" in source_name:
-                auth_token_path = source.get("auth_token_path", "")
-                if auth_token_path:
-                    token_file = Path(auth_token_path)
-                    if not token_file.is_absolute():
-                        token_file = Path.cwd() / token_file
-                    if token_file.exists():
-                        with open(token_file) as f:
-                            token = f.read().strip()
-                        # Handle URL format tokens
-                        if "@" in token and "://" in token:
-                            parts = token.split("@")[0]
-                            if ":" in parts:
-                                token = parts.rsplit(":", 1)[1]
+            if "gitlab" in source.name.lower() or "git.hmg" in source.name.lower():
+                gitlab_source = source
+                break
 
-                        if source_url.startswith("https://"):
-                            parts = source_url.split("://", 1)
-                            return f"{parts[0]}://oauth2:{token}@{parts[1]}"
+        if gitlab_source is None:
+            return source_url
+
+        token = gitlab_source.get_auth_token()
+        if not token:
+            return source_url
+
+        if source_url.startswith("https://"):
+            # GitLab uses oauth2 prefix for tokens
+            parts = source_url.split("://", 1)
+            return f"{parts[0]}://oauth2:{token}@{parts[1]}"
 
     return source_url

@@ -17,6 +17,36 @@ from .forgejo_api import check_repo_exists, create_repo, get_forgejo_username
 logger = logging.getLogger(__name__)
 
 
+def _run_post_clone_scripts(scripts: tuple[str, ...], clone_path: Path) -> None:
+    """Execute post-clone scripts in order.
+
+    Args:
+        scripts: Tuple of script paths (relative to repo root).
+        clone_path: Path to the cloned repository.
+    """
+    for script in scripts:
+        script_path = Path(script)
+        if not script_path.is_absolute():
+            # Resolve relative to current working directory (repo root)
+            script_path = Path.cwd() / script_path
+
+        if not script_path.exists():
+            logger.warning(f"  Post-clone script not found: {script_path}")
+            continue
+
+        logger.info(f"  Running post-clone script: {script}...")
+        result = subprocess.run(
+            [str(script_path), str(clone_path)],
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        if result.returncode != 0:
+            logger.warning(f"  Script '{script}' failed: {result.stderr.strip()}")
+        else:
+            logger.info(f"  ✓ Script '{script}' completed")
+
+
 def duplicate_repository(
     source_url: str,
     source_type: str,
@@ -24,6 +54,7 @@ def duplicate_repository(
     branch: str,
     clone_locations: tuple[str, ...],
     config_dir: Path,
+    post_clone_scripts: tuple[str, ...] = (),
 ) -> None:
     """Duplicate a repository to Forgejo and clone to target locations.
 
@@ -34,6 +65,7 @@ def duplicate_repository(
         branch: Branch to duplicate.
         clone_locations: Tuple of paths to clone the Forgejo repo to.
         config_dir: Directory containing the TOML config file.
+        post_clone_scripts: Tuple of script paths to execute after cloning.
 
     Raises:
         DuplicateError: If duplication fails.
@@ -201,6 +233,10 @@ def duplicate_repository(
                 env=get_git_env(),
             )
             logger.info(f"  ✓ Cloned successfully")
+
+            # Execute post-clone scripts
+            if post_clone_scripts:
+                _run_post_clone_scripts(post_clone_scripts, dest_path)
 
         logger.info("✓ Duplication complete!")
         logger.info(f"  Forgejo repo: {forgejo_clone_url}")
