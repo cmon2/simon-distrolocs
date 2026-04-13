@@ -161,6 +161,7 @@ def _fetch_repos_forgejo(source: GitSource) -> list[RepoInfo]:
                 name=repo["name"],
                 clone_url=clone_url,
                 full_name=repo.get("full_name", repo["name"]),
+                updated_at=repo.get("updated_at"),
             )
         )
 
@@ -185,6 +186,7 @@ def _fetch_repos_github(source: GitSource) -> list[RepoInfo]:
                 name=repo["name"],
                 clone_url=repo.get("clone_url", ""),
                 full_name=repo.get("full_name", repo["name"]),
+                updated_at=repo.get("updated_at"),
             )
         )
 
@@ -215,6 +217,7 @@ def _fetch_repos_gitlab(source: GitSource) -> list[RepoInfo]:
                 name=repo["path_with_namespace"],
                 clone_url=repo.get("http_url_to_repo", ""),
                 full_name=repo.get("path_with_namespace", repo["path"]),
+                updated_at=repo.get("updated_at"),
             )
         )
 
@@ -319,8 +322,22 @@ def clone_all_repos(
 
         try:
             repos = fetch_repos(source)
-            if not quiet:
-                cprint("info", f"  Found {len(repos)} repository(ies)")
+
+            # Sort by updated_at descending and apply limit if set
+            if source.limit_to_recent_repos > 0:
+                # Filter out repos without updated_at, then sort
+                repos_with_time = [r for r in repos if r.updated_at]
+                repos_with_time.sort(key=lambda r: r.updated_at, reverse=True)
+                repos = repos_with_time[: source.limit_to_recent_repos]
+                if not quiet:
+                    cprint(
+                        "info",
+                        f"  Found {len(repos)} most recently updated repo(s) "
+                        f"(limit: {source.limit_to_recent_repos})",
+                    )
+            else:
+                if not quiet:
+                    cprint("info", f"  Found {len(repos)} repository(ies)")
         except Exception as e:
             cprint("error", f"  [red]Failed to fetch repos:[/red] {e}")
             total_failed += 1

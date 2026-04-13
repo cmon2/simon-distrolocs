@@ -298,6 +298,7 @@ def _parse_git_sources(toml_dict: dict[str, Any], config_dir: Path) -> list[GitS
         ssl_verify = item.get("ssl_verify", True)
         exclude_repos_raw = item.get("exclude_repos", [])
         excluded_on_hosts_raw = item.get("excluded_on_hosts", [])
+        limit_to_recent_repos = item.get("limit_to_recent_repos", 0)
 
         if isinstance(exclude_repos_raw, str):
             exclude_repos_raw = [exclude_repos_raw]
@@ -322,6 +323,7 @@ def _parse_git_sources(toml_dict: dict[str, Any], config_dir: Path) -> list[GitS
             ssl_verify=ssl_verify,
             exclude_repos=tuple(exclude_repos_raw),
             excluded_on_hosts=tuple(excluded_on_hosts_raw),
+            limit_to_recent_repos=limit_to_recent_repos,
         )
         sources.append(source)
 

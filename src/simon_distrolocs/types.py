@@ -145,11 +145,13 @@ class RepoInfo:
         name: The repository name.
         clone_url: The URL to clone the repository.
         full_name: The full name (owner/repo) of the repository.
+        updated_at: Optional timestamp of last update (ISO8601 string).
     """
 
     name: str
     clone_url: str
     full_name: str
+    updated_at: str | None = None
 
 
 @dataclass
@@ -166,6 +168,7 @@ class GitSource:
         ssl_verify: Whether to verify SSL certificates.
         exclude_repos: List of repo names to skip.
         excluded_on_hosts: Tuple of hostnames where this source should NOT be used.
+        limit_to_recent_repos: If > 0, only clone this many most recently updated repos.
     """
 
     name: str
@@ -177,6 +180,7 @@ class GitSource:
     ssl_verify: bool = True
     exclude_repos: tuple[str, ...] = field(default_factory=tuple)
     excluded_on_hosts: tuple[str, ...] = field(default_factory=tuple)
+    limit_to_recent_repos: int = 0
 
     def get_auth_token(self) -> str:
         """Read the authentication token from the token file.
