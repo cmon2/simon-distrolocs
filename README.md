@@ -271,17 +271,31 @@ simon-distrolocs ~/my-configs --repos-only --dry-run
 simon-distrolocs/
 ├── src/
 │   └── simon_distrolocs/
-│       ├── __init__.py       # Package init
-│       ├── __main__.py       # CLI entry point
-│       ├── config.py         # TOML parsing
-│       ├── sync_engine.py    # Sync status evaluation
-│       ├── filesystem.py     # File operations
-│       ├── visualization.py  # Rich tree rendering
-│       ├── types.py          # Type definitions
-│       └── git_clone.py      # Git repository cloning
-├── requirements.md           # Requirements specification
-├── pyproject.toml            # Package configuration
-└── README.md                 # This file
+│       ├── __init__.py           # Package init
+│       ├── __main__.py           # CLI entry point
+│       ├── config.py             # TOML parsing
+│       ├── evaluate_sync.py      # Sync status evaluation
+│       ├── execute_sync.py       # Execute sync operations
+│       ├── compare_paths.py      # Path comparison utilities
+│       ├── compute_hashes.py     # File/directory hashing
+│       ├── manage_files.py       # File operations (copy, remove, symlink)
+│       ├── render_tree_view.py   # Rich tree rendering
+│       ├── types/                # Type definitions
+│       │   ├── __init__.py       # Re-exports all types
+│       │   ├── define_auth_type.py
+│       │   ├── define_link_method.py
+│       │   ├── define_sync_status.py
+│       │   ├── define_distro_type.py
+│       │   ├── define_config_mapping.py
+│       │   ├── define_sync_state.py
+│       │   ├── define_repo_duplication.py
+│       │   ├── define_app_config.py
+│       │   ├── define_repo_info.py
+│       │   └── define_git_source.py
+│       └── clone_repos.py        # Git repository cloning
+├── requirements.md               # Requirements specification
+├── pyproject.toml               # Package configuration
+└── README.md                    # This file
 ```
 
 ---

@@ -1,6 +1,6 @@
 # Simon DistroLocs - Requirements Specification
 
-**Version**: 1.1.0  
+**Version**: 1.2.0  
 **Target OS**: Linux  
 **Python Version**: 3.10+ (uses `tomllib` for 3.11+, `tomli` fallback for 3.10)
 
@@ -9,61 +9,24 @@
 ## 1. Overview
 
 ### Purpose
-A CLI tool to manage and distribute centralized configuration files/folders to system-specific destinations, with integrated git repository cloning capabilities.
+A CLI tool to manage and distribute centralized configuration files/folders to system-specific destinations, with integrated git repository cloning and duplication capabilities.
 
 ### Core Functionality
 1. **Configuration Distribution**: Scans a parent directory for `*simon-distrolocs.toml`, parses host-specific mappings, evaluates sync status, and visualizes the configuration hierarchy using Rich terminal formatting.
 2. **Git Repository Cloning**: Discovers and clones repositories from configured git sources (GitHub, Forgejo, GitLab) based on `git_sources` TOML configuration.
+3. **Repository Duplication**: Duplicates repositories from external sources (GitHub, GitLab, Forgejo) to local Forgejo instance, with optional cloning to target locations.
 
 ---
 
-## 2. Architecture
+## 2. Configuration Schema (TOML)
 
-### Directory Structure
-
-```
-simon-distrolocs/
-├── src/
-│   └── simon_distrolocs/
-│       ├── __init__.py
-│       ├── __main__.py          # CLI entry point
-│       ├── config.py            # TOML parsing and validation
-│       ├── sync_engine.py       # Sync status evaluation
-│       ├── filesystem.py        # File operations (copy, compare)
-│       ├── visualization.py     # Rich tree rendering
-│       ├── types.py             # Type definitions
-│       └── git_clone.py         # Git repository cloning
-├── requirements.txt
-├── requirements.md              # This document
-└── pyproject.toml
-```
-
-### Data Flow (Configuration)
-
-```
-CLI Input → Find TOML → Parse Config → Filter by Hostname → Evaluate Sync Status → Render Tree
-    │           │            │               │                    │                    │
-    ▼           ▼            ▼               ▼                    ▼                    ▼
- [Path]    [0-1 Files]   [TOML Dict]    [Host Configs]      [Sync States]        [Rich Tree]
-```
-
-### Data Flow (Git Clone)
-
-```
-CLI --repos-only → Find TOML → Parse git_sources → Fetch repos from APIs → Clone each repo
-```
-
----
-
-## 3. Configuration Schema (TOML)
-
-### 3.1 File Discovery
+### 2.1 File Discovery
 
 - Recursively search parent directory for files matching `*simon-distrolocs.toml`
 - **Constraint**: If multiple matches found, abort with error (unless identical content, then use first)
 - Use `tomllib` (Python 3.11+) or `tomli` (Python 3.10)
 
-### 3.2 Configuration Mappings
+### 2.2 Configuration Mappings
 
 ```toml
 [distro_types.workstation]
@@ -93,7 +56,7 @@ target = "~/.config/laptop"
 excluded_on_hosts = []
 ```
 
-### 3.3 Git Sources Configuration
+### 2.3 Git Sources Configuration
 
 ```toml
 [[git_sources]]
@@ -126,6 +89,7 @@ enabled = true
 ssl_verify = false
 exclude_repos = []
 excluded_on_hosts = []
+limit_to_recent_repos = 0  # Optional: clone only N most recently updated repos
 ```
 
 **Note:** `auth_token_path` and `cloning_destination` are resolved relative to the current working directory (repo root), not the TOML file location.
@@ -140,15 +104,39 @@ excluded_on_hosts = []
 | `auth_token_path` | string | Yes (if auth_type=token) | Path to file containing the token |
 | `cloning_destination` | string | Yes | Directory where cloned repos will be placed |
 | `enabled` | boolean | No | Whether this source is active (default: true) |
-| `ssl_verify` | boolean | No | Whether to verify SSL certificates (default: true) |
+| `ssl_verify` | boolean | **Yes** | Must be explicitly true or false |
 | `exclude_repos` | array | No | List of repo names to skip |
 | `excluded_on_hosts` | array | No | List of hostnames where this source should NOT be used |
+| `limit_to_recent_repos` | integer | No | If > 0, clone only this many most recently updated repos |
+
+### 2.4 Repository Duplication Configuration
+
+```toml
+[[duplication]]
+name = "pgxperts-prim-dev"           # Name referenced by --duplicate CLI flag
+source_type = "gitlab"               # For auth lookup (gitlab, github, forgejo)
+source_url = "https://git.hmg/simon/pgxperts-prim.git"
+forgejo_target = "pgxperts-prim"     # Base name for Forgejo repo
+target_clone_locations = ["~/git-repos/", "/var/dev/repos/"]
+enabled = true
+```
+
+#### Duplication Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Unique name referenced by `--duplicate` CLI flag |
+| `source_type` | string | Yes | Type of source for auth lookup (`gitlab`, `github`, `forgejo`) |
+| `source_url` | string | Yes | Git URL of the source repository |
+| `forgejo_target` | string | Yes | Base name for Forgejo repo (without namespace) |
+| `target_clone_locations` | array | Yes | Directories where duplicated repo should be cloned |
+| `enabled` | boolean | No | Whether this duplication is active (default: true) |
 
 ---
 
-## 4. Sync Status Engine
+## 3. Sync Status Engine
 
-### 4.1 Status States
+### 3.1 Status States
 
 | Status | Condition | Display |
 |--------|-----------|---------|
@@ -156,14 +144,14 @@ excluded_on_hosts = []
 | **Synced** | File exists at both locations, contents match exactly | `[synced]` (green) |
 | **Unsynced** | File missing, or contents differ | `[unsynced]` (red) |
 
-### 4.2 LinkMethod Variants
+### 3.2 LinkMethod Variants
 
 | Method | Behavior | Sync Status | Use Case |
 |--------|----------|-------------|----------|
 | **symlink** (default) | Creates symbolic link from target → source | Linked | Configs that change frequently |
 | **anchor** | Hard copy of source to target (snapshot) | Synced | Stable configs; fixed point |
 
-### 4.3 Status Evaluation Logic
+### 3.3 Status Evaluation Logic
 
 ```
 1. If target is symlink:
@@ -178,9 +166,9 @@ excluded_on_hosts = []
 
 ---
 
-## 5. CLI Interface
+## 4. CLI Interface
 
-### 5.1 Command Structure
+### 4.1 Command Structure
 
 ```bash
 simon-distrolocs <managed_configs_directory> [OPTIONS]
@@ -189,7 +177,7 @@ simon-distrolocs <managed_configs_directory> [OPTIONS]
 python -m simon_distrolocs <managed_configs_directory> [OPTIONS]
 ```
 
-### 5.2 Options
+### 4.2 Options
 
 | Option | Description |
 |--------|-------------|
@@ -200,40 +188,79 @@ python -m simon_distrolocs <managed_configs_directory> [OPTIONS]
 | `--hide-synced` | Hide Synced items from output |
 | `--only-unsynced` | Show only Unsynced items |
 | `--repos-only` | Clone repositories from configured git sources and exit |
+| `--duplicate <name>` | Duplicate a repository to Forgejo (requires `--branch`) |
+| `--branch <branch>` | Branch to duplicate (required with `--duplicate`) |
 | `-v, --verbose` | Increase verbosity (can be repeated) |
 | `-q, --quiet` | Suppress informational messages |
 | `--version` | Show version number |
 
-### 5.3 Exit Codes
+### 4.3 Exit Codes
 
 - `0`: Success
-- `1`: Configuration error or git clone failure
+- `1`: Configuration error, git clone failure, or duplication failure
 - `2`: File system error (permission denied, path not found)
 
 ---
 
-## 6. Git Repository Cloning
+## 5. Git Repository Cloning
 
-### 6.1 Source Types
+### 5.1 Source Types
 
-| Source | API Pattern | Auth Header |
-|--------|-------------|-------------|
-| **GitHub** | `api.github.com` or `/orgs/` | `Authorization: token {token}` |
-| **GitLab** | `gitlab` or `git.hmg` | `PRIVATE-TOKEN: {token}` with `oauth2:` prefix |
+| Source | Detection Pattern | Auth Header |
+|--------|-------------------|-------------|
+| **GitHub** | `github.com` in URL | `Authorization: token {token}` |
+| **GitLab** | `gitlab` or `git.hmg` in URL | `PRIVATE-TOKEN: {token}` with `oauth2:` prefix |
 | **Forgejo** | Default (fallback) | `Authorization: token {token}` |
 
-### 6.2 Clone URL Building
+### 5.2 Clone URL Building
 
 - GitHub: Uses token directly in URL
 - GitLab: Prefixes token with `oauth2:` before embedding in URL
 - Forgejo: Uses token directly in URL
 
-### 6.3 Clone Behavior
+### 5.3 Clone Behavior
 
 - Skips repos that already exist locally
 - Respects `exclude_repos` list to skip certain repositories
+- Sorts by `updated_at` descending when `limit_to_recent_repos` is set
 - Supports `--dry-run` to preview what would be cloned
 - Disables SSL verification when `ssl_verify = false`
+- Warns if no auth verification script exists for a source
+
+### 5.4 Auth Verification
+
+Before cloning, the system checks for verification scripts at `scripts/verify/`:
+- `verify_github_token.sh`
+- `verify_forgejo_token.sh`
+- `verify_gitlab_token.sh`
+
+If a source lacks a verification script, a warning is displayed but cloning proceeds.
+
+---
+
+## 6. Repository Duplication
+
+### 6.1 Workflow
+
+1. Find duplication config by name from TOML
+2. Verify branch exists in source repository
+3. Check if repo exists on Forgejo (offer delete/recreate if so)
+4. Create repo on Forgejo if needed
+5. Clone source repo and push to Forgejo
+6. Clone from Forgejo to all `target_clone_locations`
+
+### 6.2 Behavior
+
+- **Idempotent**: Safe to re-run after failures by cleaning up first
+- **Branch verification**: Aborts if branch doesn't exist in source
+- **Local clone check**: Aborts if target location already has a clone
+- **SSH for source**: Uses `GIT_SSH_COMMAND` with `~/.ssh/config` for source clones
+
+### 6.3 Forgejo URL Format
+
+Tokens can be stored in two formats:
+1. Raw token: `tokenstring`
+2. URL format: `http://user:token@host` (token extracted from password portion)
 
 ---
 
@@ -296,11 +323,12 @@ class ConfigMapping:
     excluded_on_hosts: tuple[str, ...] = field(default_factory=tuple)
     method: Optional[LinkMethod] = None
 
-@dataclass(frozen=True)
+@dataclass
 class RepoInfo:
     name: str
     clone_url: str
     full_name: str
+    updated_at: Optional[str] = None  # For sorting by recency
 
 @dataclass
 class GitSource:
@@ -313,14 +341,44 @@ class GitSource:
     ssl_verify: bool = True
     exclude_repos: tuple[str, ...] = field(default_factory=tuple)
     excluded_on_hosts: tuple[str, ...] = field(default_factory=tuple)
+    limit_to_recent_repos: int = 0
 
     def get_auth_token(self) -> str:
-        """Read authentication token from token file."""
+        """Read authentication token from token file.
+        
+        Handles two formats:
+        1. Raw token: "tokenstring"
+        2. URL format: "http://user:token@host"
+        """
         try:
             with open(self.auth_token_path) as f:
-                return f.read().strip()
+                token = f.read().strip()
+            
+            # Handle URL-formatted tokens
+            if "@" in token and "://" in token:
+                parts = token.split("@")[0]
+                if ":" in parts:
+                    token = parts.rsplit(":", 1)[1]
+            
+            return token
         except OSError:
             return ""
+
+@dataclass
+class RepoDuplication:
+    name: str
+    source_type: str
+    source_url: str
+    forgejo_target: str
+    target_clone_locations: tuple[str, ...]
+    enabled: bool = True
+
+@dataclass
+class CloneResult:
+    """Result of a clone operation."""
+    repo: RepoInfo
+    success: bool
+    message: str
 ```
 
 ---
@@ -330,6 +388,7 @@ class GitSource:
 ### Runtime
 ```
 rich>=13.0.0
+cmon2lib>=0.1.0
 ```
 
 ### Python Version Compatibility
@@ -351,6 +410,7 @@ tomli>=2.0.0;python_version<'3.11'
 4. **Pure functions**: Business logic prefers pure functions over mutation
 5. **Path handling**: All file paths via `pathlib.Path`
 6. **No sensitive data in public repos**: Tokens/keys must not be committed
+7. **Explicit SSL verification**: `ssl_verify` must be explicitly set (no default)
 
 ---
 
@@ -361,3 +421,4 @@ tomli>=2.0.0;python_version<'3.11'
 - Configuration templating
 - Exclude patterns for file discovery
 - SSH key authentication for git sources
+- Additional auth verification scripts (SSH)

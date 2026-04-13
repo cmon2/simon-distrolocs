@@ -1,9 +1,25 @@
-"""Sync status evaluation engine for Simon DistroLocs."""
+"""Sync status evaluation for Simon DistroLocs."""
 
 from __future__ import annotations
 
-from .filesystem import create_symlink, is_symlink_to, paths_match, safe_execute_copy
 from .types import AppConfig, ConfigMapping, LinkMethod, SyncState, SyncStatus
+from .compare_paths import is_symlink_to, paths_match
+
+
+def _is_copy_method(method: LinkMethod | None) -> bool:
+    """Determine if a link method resolves to a copy operation.
+
+    Args:
+        method: The link method to check.
+
+    Returns:
+        True if the method is a copy/anchor variant, False for symlink.
+    """
+    # ANCHOR is the copy variant; None/SYMLINK are symlink variants.
+    # Treat mirror, fossilize, crystallize as anchor (copy) by method resolution.
+    if method is None:
+        return False
+    return method != LinkMethod.SYMLINK
 
 
 def evaluate_sync_status(mapping: ConfigMapping) -> SyncState:
@@ -142,53 +158,3 @@ def count_by_status(states: list[SyncState]) -> dict[SyncStatus, int]:
         counts[state.status] += 1
 
     return counts
-
-
-def _is_copy_method(method: LinkMethod | None) -> bool:
-    """Determine if a link method resolves to a copy operation.
-
-    Args:
-        method: The link method to check.
-
-    Returns:
-        True if the method is a copy/anchor variant, False for symlink.
-    """
-    # ANCHOR is the copy variant; None/SYMLINK are symlink variants.
-    # Treat mirror, fossilize, crystallize as anchor (copy) by method resolution.
-    if method is None:
-        return False
-    return method != LinkMethod.SYMLINK
-
-
-def execute_sync(state: SyncState) -> SyncState:
-    """Execute the synchronization action for a mapping based on its method.
-
-    Args:
-        state: The sync state describing what needs to be synced.
-
-    Returns:
-        A new SyncState with status updated to LINKED (symlink) or SYNCED (copy),
-        or the original state if the operation failed.
-    """
-    source = state.mapping.source
-    target = state.mapping.target
-
-    success: bool
-    if _is_copy_method(state.method):
-        success = safe_execute_copy(source, target)
-        new_status = SyncStatus.SYNCED if success else state.status
-    else:
-        success = create_symlink(source, target)
-        new_status = SyncStatus.LINKED if success else state.status
-
-    if success:
-        return SyncState(
-            mapping=state.mapping,
-            status=new_status,
-            source_exists=state.source_exists,
-            target_exists=True,
-            is_symlink=not _is_copy_method(state.method),
-            method=state.method,
-        )
-
-    return state

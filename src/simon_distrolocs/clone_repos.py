@@ -25,16 +25,16 @@ VERIFY_SCRIPTS_DIR = Path(__file__).parent.parent.parent / "scripts" / "verify"
 
 VERIFICATION_SCRIPTS = {
     "github": {
-        "ssh": "verify_github_ssh_auth.sh",
-        "token": "verify_github_token_auth.sh",  # future
+        "ssh": "verify_github_ssh.sh",
+        "token": "verify_github_token.sh",  # future
     },
     "forgejo": {
-        "token": "verify_forgejo_token_auth.sh",
-        "ssh": "verify_forgejo_ssh_auth.sh",  # future
+        "token": "verify_forgejo_token.sh",
+        "ssh": "verify_forgejo_ssh.sh",  # future
     },
     "gitlab": {
-        "token": "verify_gitlab_token_auth.sh",
-        "ssh": "verify_gitlab_ssh_auth.sh",  # future
+        "token": "verify_gitlab_token.sh",
+        "ssh": "verify_gitlab_ssh.sh",  # future
     },
 }
 
@@ -43,6 +43,25 @@ class CloneError(Exception):
     """Raised when repository cloning fails."""
 
     pass
+
+
+def _detect_source_type(url: str) -> str:
+    """Detect the source type (github, gitlab, or forgejo) from a URL.
+
+    Args:
+        url: The URL to analyze.
+
+    Returns:
+        The source type: "github", "gitlab", or "forgejo".
+    """
+    url_lower = url.lower()
+
+    if "github.com" in url_lower:
+        return "github"
+    elif "gitlab" in url_lower or "git.hmg" in url_lower:
+        return "gitlab"
+    else:
+        return "forgejo"
 
 
 def check_auth_verification(source: GitSource) -> tuple[bool, str]:
@@ -55,14 +74,7 @@ def check_auth_verification(source: GitSource) -> tuple[bool, str]:
         Tuple of (has_verification, message).
     """
     # Determine the source type from URL
-    url_lower = source.list_repos_url.lower()
-
-    if "github.com" in url_lower:
-        source_type = "github"
-    elif "gitlab" in url_lower or "git.hmg" in url_lower:
-        source_type = "gitlab"
-    else:
-        source_type = "forgejo"
+    source_type = _detect_source_type(source.list_repos_url)
 
     # Determine auth method
     auth_method = source.auth_type.value if source.auth_type else "token"
@@ -177,7 +189,13 @@ def _fetch_repos_github(source: GitSource) -> list[RepoInfo]:
     if token:
         req.add_header("Authorization", f"token {token}")
 
-    with urllib.request.urlopen(req) as response:
+    context = None
+    if not source.ssl_verify:
+        context = ssl.create_default_context()
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
+
+    with urllib.request.urlopen(req, context=context) as response:
         data = json.loads(response.read().decode())
 
     for repo in data:
@@ -226,11 +244,11 @@ def _fetch_repos_gitlab(source: GitSource) -> list[RepoInfo]:
 
 def fetch_repos(source: GitSource) -> list[RepoInfo]:
     """Fetch repository list from a git source."""
-    url = source.list_repos_url.lower()
+    source_type = _detect_source_type(source.list_repos_url)
 
-    if "github.com" in url or "/orgs/" in url:
+    if source_type == "github":
         return _fetch_repos_github(source)
-    elif "gitlab" in url or "git.hmg" in url:
+    elif source_type == "gitlab":
         return _fetch_repos_gitlab(source)
     else:
         return _fetch_repos_forgejo(source)

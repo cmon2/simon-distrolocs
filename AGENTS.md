@@ -41,11 +41,14 @@ Simon DistroLocs is a CLI tool for managing and distributing centralized configu
 |--------|----------------|
 | `__main__.py` | CLI entry point, argument parsing |
 | `config.py` | TOML file discovery, parsing, validation |
-| `types.py` | Type definitions (LinkMethod, SyncStatus, etc.) |
-| `sync_engine.py` | Sync status evaluation, execute_sync |
-| `filesystem.py` | File operations (copy, compare, symlink) |
-| `visualization.py` | Rich tree rendering |
-| `git_clone.py` | Git repository cloning from API sources |
+| `types/` | Type definitions (individual define_*.py files) |
+| `evaluate_sync.py` | Sync status evaluation |
+| `execute_sync.py` | Execute sync operations |
+| `compare_paths.py` | Path comparison utilities |
+| `compute_hashes.py` | File/directory hash computation |
+| `manage_files.py` | File operations (copy, remove, symlink) |
+| `render_tree_view.py` | Rich tree rendering |
+| `clone_repos.py` | Git repository cloning from API sources |
 
 ### Data Flow
 
@@ -81,9 +84,10 @@ auth_type = "token"           # "token", "ssh", or "none"
 auth_token_path = "path/to/tokenfile"
 cloning_destination = "destinationDir/"
 enabled = true
-ssl_verify = true
+ssl_verify = true             # REQUIRED - must be explicitly true or false
 exclude_repos = ["repo1", "repo2"]
 excluded_on_hosts = []       # Optional: hosts where this source should NOT be used
+limit_to_recent_repos = 0    # Optional: if > 0, clone only N most recently updated repos
 ```
 
 ---
@@ -111,14 +115,14 @@ echo 'visualizationDepth = 1' >> /tmp/test-configs/test.toml
 python -m simon_distrolocs /tmp/test-configs
 ```
 
-### Verify git_clone Module
+### Verify clone_repos Module
 
 ```bash
 # Test imports (using uv venv)
 uv venv
 source .venv/bin/activate
 uv pip install -e .
-python -c "from simon_distrolocs.git_clone import clone_all_repos, RepoInfo, GitSource"
+python -c "from simon_distrolocs.clone_repos import clone_all_repos, RepoInfo, GitSource"
 
 # Verify types exist
 python -c "from simon_distrolocs.types import AuthType, GitSource, RepoInfo"
@@ -137,7 +141,7 @@ python -c "from simon_distrolocs.types import AuthType, GitSource, RepoInfo"
 
 ### New Git Source
 
-1. Add detection logic in `fetch_repos()` in `git_clone.py`
+1. Add detection logic in `fetch_repos()` in `clone_repos.py`
 2. Add fetch function (e.g., `_fetch_repos_newsource()`)
 3. Update URL detection patterns
 4. Add tests for API response parsing
@@ -188,7 +192,7 @@ simon-distrolocs/
 │   ├── __main__.py         # CLI entry (DO NOT import from here for functionality)
 │   ├── config.py           # Config loading
 │   ├── filesystem.py       # File ops
-│   ├── git_clone.py        # Git cloning
+│   ├── clone_repos.py      # Git cloning
 │   ├── sync_engine.py      # Sync logic
 │   ├── types.py            # Type defs
 │   └── visualization.py    # Rich output

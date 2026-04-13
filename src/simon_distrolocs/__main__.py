@@ -11,24 +11,18 @@ from rich.console import Console
 
 from cmon2lib import cprint, clog
 
-from .config import (
-    AppConfig,
-    ConfigError,
-    load_config,
-    _parse_git_sources,
-    find_config_file,
-    parse_toml_config,
-)
-from .filesystem import remove_path
-from .git_clone import clone_all_repos
-from .sync_engine import (
+from .config import AppConfig, ConfigError, find_config_file, load_config
+from .parsing import parse_git_sources, parse_toml_config
+from .manage_files import remove_path
+from .clone_repos import clone_all_repos
+from .evaluate_sync import (
     count_by_status,
     evaluate_all_sync_status,
-    execute_sync,
     filter_sync_states,
 )
+from .execute_sync import execute_sync
 from .types import SyncStatus
-from .visualization import build_config_tree, print_legend
+from .render_tree_view import build_config_tree, print_legend
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -269,7 +263,7 @@ def main() -> int:
         try:
             config_file = find_config_file(args.managed_configs_directory)
             toml_dict = parse_toml_config(config_file)
-            git_sources = _parse_git_sources(toml_dict, config_file.parent)
+            git_sources = parse_git_sources(toml_dict)
 
             if not git_sources:
                 cprint("warning", "[yellow]No git sources configured.[/yellow]")

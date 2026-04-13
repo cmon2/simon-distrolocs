@@ -132,7 +132,7 @@ def build_config_tree(
         Tree object ready for rendering.
     """
     from .config import get_visualization_depth
-    from .sync_engine import count_by_status
+    from .evaluate_sync import count_by_status
 
     hostname = config.mappings[0].source.parts[0] if config.mappings else "unknown"
 
