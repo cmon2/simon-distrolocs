@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import shutil
 import ssl
@@ -34,6 +35,13 @@ import sys
 import tempfile
 import urllib.request
 from pathlib import Path
+
+# Configure logging
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    stream=sys.stderr,
+)
 
 # Handle Python version compatibility
 if sys.version_info >= (3, 11):
@@ -51,13 +59,13 @@ SIMON_IDE_DIR = SCRIPT_DIR.parent.parent.parent
 def _get_git_env() -> dict:
     """Get environment dict with SSH command for Git operations.
 
-    For GitLab source repos, SSH is the only supported auth method
-    (token auth for git clone is not supported for GitLab sources).
-    This env var ensures git uses SSH publickey auth.
+    Uses ~/.ssh/config to resolve hostnames like 'git.hmg' which are
+    defined in SSH config, not DNS.
     """
+    ssh_config_path = Path.home() / ".ssh" / "config"
     return {
         **os.environ,
-        "GIT_SSH_COMMAND": "ssh -o PreferredAuthentications=publickey",
+        "GIT_SSH_COMMAND": f"ssh -F {ssh_config_path} -o PreferredAuthentications=publickey",
     }
 
 
@@ -335,9 +343,10 @@ def duplicate_repository(
     # Verify branch exists in source repo before proceeding
     print(f"Checking if branch '{branch}' exists in source repo...")
     source_clone_url = _build_source_clone_url(source_url, source_type, config_dir)
+    logging.debug(f"Source clone URL: {source_clone_url}")
     temp_check_dir = Path(tempfile.mkdtemp(prefix="dup_check_"))
     try:
-        subprocess.run(
+        result = subprocess.run(
             [
                 "git",
                 "clone",
@@ -354,6 +363,9 @@ def duplicate_repository(
             timeout=60,
             env=_get_git_env(),
         )
+        logging.debug(f"Clone stdout: {result.stdout}")
+        logging.debug(f"Clone stderr: {result.stderr}")
+        logging.debug(f"Clone return code: {result.returncode}")
         if not (temp_check_dir / ".git").exists():
             print(f"[RED]Branch '{branch}' does not exist in source repository.[/RED]")
             print("Please verify the branch name and try again.")
@@ -448,7 +460,7 @@ def duplicate_repository(
             check=True,
             capture_output=True,
             text=True,
-            timeout=120,
+            timeout=600,  # 10 minutes - push can be slow for large repos
             env={**os.environ, "GIT_TERMINAL_PROMPT": "0"},
         )
         print(f"  Pushed to {forgejo_clone_url}")
