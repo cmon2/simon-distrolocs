@@ -7,6 +7,12 @@ from typing import Any
 from ..types import RepoDuplication
 
 
+class DuplicateError(Exception):
+    """Raised when repository duplication fails."""
+
+    pass
+
+
 def parse_duplications(toml_dict: dict[str, Any]) -> tuple[RepoDuplication, ...]:
     """Parse [[duplication]] sections from TOML.
 

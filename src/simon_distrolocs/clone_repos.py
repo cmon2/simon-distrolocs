@@ -18,25 +18,12 @@ from typing import Optional
 
 from cmon2lib import cprint, clog
 
+from .auth_verification import (
+    verify_github_ssh,
+    verify_gitlab_token,
+    verify_forgejo_token,
+)
 from .types import AuthType, GitSource, RepoInfo
-
-# Verification script paths relative to distrolocs root
-VERIFY_SCRIPTS_DIR = Path(__file__).parent.parent.parent / "scripts" / "verify"
-
-VERIFICATION_SCRIPTS = {
-    "github": {
-        "ssh": "verify_github_ssh.sh",
-        "token": "verify_github_token.sh",  # future
-    },
-    "forgejo": {
-        "token": "verify_forgejo_token.sh",
-        "ssh": "verify_forgejo_ssh.sh",  # future
-    },
-    "gitlab": {
-        "token": "verify_gitlab_token.sh",
-        "ssh": "verify_gitlab_ssh.sh",  # future
-    },
-}
 
 
 class CloneError(Exception):
@@ -65,63 +52,56 @@ def _detect_source_type(url: str) -> str:
 
 
 def check_auth_verification(source: GitSource) -> tuple[bool, str]:
-    """Check if a verification script exists for a git source.
+    """Verify authentication for a git source by running the appropriate script.
 
     Args:
-        source: The GitSource to check.
+        source: The GitSource to verify.
 
     Returns:
-        Tuple of (has_verification, message).
+        Tuple of (success, message).
     """
-    # Determine the source type from URL
     source_type = _detect_source_type(source.list_repos_url)
-
-    # Determine auth method
     auth_method = source.auth_type.value if source.auth_type else "token"
 
-    # Get the expected verification script
-    scripts_for_source = VERIFICATION_SCRIPTS.get(source_type, {})
-    script_name = scripts_for_source.get(auth_method)
-
-    if not script_name:
-        return False, f"No verification script defined for {source_type}/{auth_method}"
-
-    script_path = VERIFY_SCRIPTS_DIR / script_name
-
-    if script_path.exists():
-        return True, f"Verification script found: {script_path}"
+    # Run the appropriate verification script
+    if source_type == "github" and auth_method == "ssh":
+        return verify_github_ssh()
+    elif source_type == "gitlab" and auth_method == "token":
+        return verify_gitlab_token()
+    elif source_type == "forgejo" and auth_method == "token":
+        return verify_forgejo_token()
     else:
-        return False, f"Verification script not found: {script_path}"
+        return False, f"No verification available for {source_type}/{auth_method}"
 
 
 def warn_missing_auth_verification(sources: list[GitSource]) -> None:
-    """Print warnings for git sources without verification scripts.
+    """Verify authentication for all git sources before cloning.
 
     Args:
-        sources: List of GitSources to check.
+        sources: List of GitSources to verify.
     """
-    cprint("info", "\n[yellow]Checking auth verification for git sources...[/yellow]")
+    cprint("info", "\n[yellow]Verifying authentication for git sources...[/yellow]")
 
-    has_warnings = False
+    auth_failures = []
     for source in sources:
         if not source.enabled:
             continue
 
-        has_verification, message = check_auth_verification(source)
+        cprint("info", f"\n  Verifying {source.name}...")
+        success, message = check_auth_verification(source)
 
-        if has_verification:
-            cprint("success", f"  [green]✓[/green] {source.name}: {message}")
+        if success:
+            cprint("success", f"    [green]✓[/green] {message}")
         else:
-            cprint("warning", f"  [yellow]![/yellow] {source.name}: {message}")
-            has_warnings = True
+            cprint("error", f"    [red]✗[/red] {message}")
+            auth_failures.append(source.name)
 
-    if has_warnings:
+    if auth_failures:
         cprint(
-            "warning",
-            "\n[yellow]Warning: Some git sources don't have auth verification scripts.[/yellow]\n"
-            "This means authentication can't be automatically verified before cloning.\n"
-            "Consider adding verification scripts to scripts/verify/",
+            "error",
+            f"\n[bold red]Authentication failed for: {', '.join(auth_failures)}[/bold red]",
         )
+        cprint("error", "Please fix authentication credentials before cloning.\n")
 
 
 @dataclass

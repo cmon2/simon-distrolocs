@@ -9,7 +9,9 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SIMON_IDE_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+# simon_ide/ is 5 levels up from auth_verification/
+# auth_verification/ -> simon_distrolocs/ -> src/ -> simon-distrolocs/ -> 06_agents_working_directory/ -> simon_ide/
+SIMON_IDE_DIR="$(cd "$SCRIPT_DIR/../../../../.." && pwd)"
 
 # Color codes
 RED='\033[0;31m'

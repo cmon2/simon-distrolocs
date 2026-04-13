@@ -229,12 +229,12 @@ python -m simon_distrolocs <managed_configs_directory> [OPTIONS]
 
 ### 5.4 Auth Verification
 
-Before cloning, the system checks for verification scripts at `scripts/verify/`:
-- `verify_github_token.sh`
+Before cloning, the system verifies authentication for each git source by running verification scripts at `auth_verification/`:
+- `verify_github_ssh.sh`
 - `verify_forgejo_token.sh`
 - `verify_gitlab_token.sh`
 
-If a source lacks a verification script, a warning is displayed but cloning proceeds.
+If authentication fails, cloning aborts with an error. This ensures credentials work before attempting operations.
 
 ---
 
