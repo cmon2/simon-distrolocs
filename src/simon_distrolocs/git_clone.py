@@ -10,6 +10,7 @@ import json
 import socket
 import ssl
 import subprocess
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
@@ -138,8 +139,23 @@ def _fetch_repos_forgejo(source: GitSource) -> list[RepoInfo]:
     with urllib.request.urlopen(req, context=context) as response:
         data = json.loads(response.read().decode())
 
+    # Extract the correct hostname from the source URL to fix Forgejo's
+    # tendency to return localhost-based clone URLs when queried externally
+    parsed_source = urllib.parse.urlparse(source.list_repos_url)
+    source_host = parsed_source.netloc
+
     for repo in data:
         clone_url = repo.get("clone_url", "") or repo.get("ssh_url", "")
+
+        # Fix Forgejo returning localhost URLs when queried via network hostname
+        if clone_url:
+            parsed_clone = urllib.parse.urlparse(clone_url)
+            if parsed_clone.hostname in ("localhost", "127.0.0.1"):
+                # Substitute localhost with the actual source host
+                clone_url = f"{parsed_clone.scheme}://{source_host}{parsed_clone.path}"
+                if parsed_clone.query:
+                    clone_url += f"?{parsed_clone.query}"
+
         repos.append(
             RepoInfo(
                 name=repo["name"],
