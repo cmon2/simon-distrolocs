@@ -10,10 +10,18 @@ from .parse_link_method import parse_link_method
 from .parse_mappings import parse_mappings
 from .parse_auth_type import parse_auth_type
 from .parse_git_sources import parse_git_sources
-from .parse_duplications import parse_duplications
+from .parse_duplications import find_duplication_by_name, parse_duplications
+
+
+class DuplicateError(Exception):
+    """Raised when repository duplication fails."""
+
+    pass
+
 
 __all__ = [
     "ConfigError",
+    "DuplicateError",
     "parse_toml_config",
     "parse_distro_types",
     "parse_link_method",
@@ -21,4 +29,5 @@ __all__ = [
     "parse_auth_type",
     "parse_git_sources",
     "parse_duplications",
+    "find_duplication_by_name",
 ]

@@ -45,3 +45,21 @@ def parse_duplications(toml_dict: dict[str, Any]) -> tuple[RepoDuplication, ...]
         )
 
     return tuple(duplications)
+
+
+def find_duplication_by_name(
+    duplications: tuple[RepoDuplication, ...], name: str
+) -> RepoDuplication | None:
+    """Find a duplication by name.
+
+    Args:
+        duplications: Tuple of RepoDuplication objects.
+        name: Name of the duplication to find.
+
+    Returns:
+        RepoDuplication if found, None otherwise.
+    """
+    for dup in duplications:
+        if dup.name == name:
+            return dup
+    return None

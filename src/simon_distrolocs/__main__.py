@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import subprocess
 import sys
 from pathlib import Path
 
@@ -12,7 +11,14 @@ from rich.console import Console
 from cmon2lib import cprint, clog
 
 from .config import AppConfig, ConfigError, find_config_file, load_config
-from .parsing import parse_git_sources, parse_toml_config
+from .forgejo_client import duplicate_repository
+from .parsing import (
+    DuplicateError,
+    find_duplication_by_name,
+    parse_duplications,
+    parse_git_sources,
+    parse_toml_config,
+)
 from .manage_files import remove_path
 from .clone_repos import clone_all_repos
 from .evaluate_sync import (
@@ -294,25 +300,38 @@ def main() -> int:
             )
             return 1
 
-        script_path = (
-            Path(__file__).parent.parent.parent / "scripts" / "duplicate_repo.py"
-        )
-
         try:
-            result = subprocess.run(
-                [
-                    sys.executable,
-                    str(script_path),
-                    str(args.managed_configs_directory),
-                    args.duplicate,
-                    args.branch,
-                ],
-                cwd=args.managed_configs_directory,
+            config_path = find_config_file(args.managed_configs_directory)
+            toml_dict = parse_toml_config(config_path)
+            duplications = parse_duplications(toml_dict)
+
+            duplication = find_duplication_by_name(duplications, args.duplicate)
+            if duplication is None:
+                cprint(
+                    "error",
+                    f"[bold red]Duplication '{args.duplicate}' not found in config[/bold red]",
+                )
+                clog("error", f"Duplication not found: {args.duplicate}")
+                return 1
+
+            duplicate_repository(
+                source_url=duplication.source_url,
+                source_type=duplication.source_type,
+                forgejo_target=duplication.forgejo_target,
+                branch=args.branch,
+                clone_locations=duplication.target_clone_locations,
+                config_dir=args.managed_configs_directory,
             )
-            return result.returncode
-        except Exception as e:
-            cprint("error", f"[bold red]Error running duplicate script:[/bold red] {e}")
-            clog("error", f"Duplicate script error: {e}")
+            cprint("success", "[green]✓ Duplication complete![/green]")
+            return 0
+
+        except DuplicateError as e:
+            cprint("error", f"[bold red]Duplicate Error:[/bold red] {e}")
+            clog("error", f"Duplicate error: {e}")
+            return 1
+        except ConfigError as e:
+            cprint("error", f"[bold red]Configuration Error:[/bold red] {e}")
+            clog("error", f"Configuration error: {e}")
             return 1
 
     if not config.mappings:
