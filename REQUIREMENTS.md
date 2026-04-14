@@ -23,7 +23,14 @@ A CLI tool to manage and distribute centralized configuration files/folders to s
 ### 2.1 File Discovery
 
 - Recursively search parent directory for files matching `*simon-distrolocs.toml`
-- **Constraint**: If multiple matches found, abort with error (unless identical content, then use first)
+- If multiple matches found with identical content, use the first (warn and deduplicate)
+- If multiple matches found with different content, merge all configs:
+  - `[distro_types.*]`: Merged by key, later values override on conflict
+  - `[[mapping]]`, `[[git_sources]]`, `[[duplication]]`: Deduplicated by `name` field
+  - **Conflict resolution**: For entries with same name but different content:
+    1. Prefer the entry closer to the current working directory (shorter relative path)
+    2. If same distance, use the more recently accessed file
+  - A warning is logged for each conflict resolved
 - Use `tomllib` (Python 3.11+) or `tomli` (Python 3.10)
 
 ### 2.2 Configuration Mappings

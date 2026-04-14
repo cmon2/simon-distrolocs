@@ -52,7 +52,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Multi-config file merging**: When multiple `*simon-distrolocs.toml` files are found, they are now merged instead of causing an error. Conflicts are resolved by preferring entries closer to the working directory.
+
 ### Fixed
+
+- **Path resolution bug**: When multiple configs exist, token paths now resolve correctly using the actual config file's directory, not the originally passed directory
 
 - **Git source path resolution**: `auth_token_path` and `cloning_destination` now correctly resolved relative to cwd (repo root), not the TOML config directory
 - **GitLab SSL verification**: Updated example to use `ssl_verify = false` for self-signed certs
