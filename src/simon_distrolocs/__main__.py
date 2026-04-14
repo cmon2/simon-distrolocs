@@ -275,7 +275,8 @@ def main() -> int:
         try:
             config_file = find_config_file(args.managed_configs_directory)
             toml_dict = parse_toml_config(config_file)
-            git_sources = parse_git_sources(toml_dict)
+            # Use config_file.parent to ensure paths resolve correctly
+            git_sources = parse_git_sources(toml_dict, config_file.parent)
 
             if not git_sources:
                 cprint("warning", "[yellow]No git sources configured.[/yellow]")

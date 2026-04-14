@@ -40,7 +40,9 @@ def get_forgejo_config(config_dir: Path) -> tuple[str, str]:
     config_path = find_config_file(config_dir)
     toml_dict = parse_toml_config(config_path)
 
-    git_sources = parse_git_sources(toml_dict)
+    # Use the directory of the actual config file, not the original config_dir
+    # This ensures paths resolve correctly when multiple configs exist
+    git_sources = parse_git_sources(toml_dict, config_path.parent)
     forgejo_source = _find_forgejo_source(git_sources)
 
     if forgejo_source is None:
