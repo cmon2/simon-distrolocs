@@ -17,8 +17,9 @@ def parse_git_sources(
 
     Args:
         toml_dict: Parsed TOML dictionary.
-        config_dir: The directory containing the TOML config file (unused for git sources,
-            kept for API compatibility - paths are resolved relative to cwd).
+        config_dir: The directory containing the TOML config file.
+            auth_token_path and cloning_destination are resolved relative
+            to the simon_ide repo root.
 
     Returns:
         List of GitSource objects.
@@ -29,8 +30,15 @@ def parse_git_sources(
     if isinstance(raw_sources, dict):
         raw_sources = [raw_sources]
 
-    # Resolve git source paths relative to cwd (repo root), not config_dir
-    repo_root = Path.cwd()
+    # Resolve paths relative to simon_ide repo root
+    # config_dir is typically 02_configs/simon-distrolocs
+    # repo_root is the parent of 02_configs/ = /home/simon/simon_ide
+    if config_dir:
+        # config_dir is like /path/to/simon_ide/02_configs/simon-distrolocs
+        # we need /path/to/simon_ide
+        repo_root = config_dir.parent.parent
+    else:
+        repo_root = Path.cwd()
 
     for item in raw_sources:
         name = item.get("name", "")
