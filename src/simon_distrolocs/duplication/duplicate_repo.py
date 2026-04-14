@@ -91,8 +91,9 @@ def duplicate_repository(
     # Build full Forgejo repo name
     forgejo_repo_name = f"{username}/{forgejo_target}-{branch}"
 
-    # Extract host from forgejo_base for HTTP URL (HTTPS doesn't work for git operations)
-    forgejo_host = forgejo_base.split("://")[-1].split(":")[0]
+    # Extract host from forgejo_base for HTTP URL (including port)
+    # forgejo_base is like http://192.168.56.1:3000
+    forgejo_host = forgejo_base.split("://")[-1]  # Get "192.168.56.1:3000"
     # Forgejo uses token auth via HTTP, not SSH
     forgejo_clone_url = (
         f"http://simon:{token}@{forgejo_host}/simon/{forgejo_target}-{branch}.git"
@@ -106,10 +107,14 @@ def duplicate_repository(
 
     # Verify branch exists in source repo before proceeding
     logger.info(f"Checking if branch '{branch}' exists in source repo...")
-    source_clone_url = build_source_clone_url(source_url, source_type)
+    source_clone_url = build_source_clone_url(source_url, source_type, config_dir)
     logger.debug(f"Source clone URL: {source_clone_url}")
     temp_check_dir = Path(tempfile.mkdtemp(prefix="dup_check_"))
     try:
+        # Use clean environment for HTTPS GitLab URLs (token auth, no SSH needed)
+        check_env = {k: v for k, v in get_git_env().items() if k != "GIT_SSH_COMMAND"}
+        check_env["GIT_TERMINAL_PROMPT"] = "0"
+        check_env["GIT_SSL_NO_VERIFY"] = "1"
         result = subprocess.run(
             [
                 "git",
@@ -125,7 +130,7 @@ def duplicate_repository(
             capture_output=True,
             text=True,
             timeout=60,
-            env=get_git_env(),
+            env=check_env,
         )
         logger.debug(f"Clone stdout: {result.stdout}")
         logger.debug(f"Clone stderr: {result.stderr}")
@@ -158,9 +163,13 @@ def duplicate_repository(
     # Clone source repo to temp directory
     logger.info("Cloning source repository...")
     temp_dir = Path(tempfile.mkdtemp(prefix="dup_"))
-    source_clone_url = build_source_clone_url(source_url, source_type)
+    source_clone_url = build_source_clone_url(source_url, source_type, config_dir)
 
     try:
+        # Use clean environment for HTTPS GitLab URLs (token auth, no SSH needed)
+        clone_env = {k: v for k, v in get_git_env().items() if k != "GIT_SSH_COMMAND"}
+        clone_env["GIT_TERMINAL_PROMPT"] = "0"
+        clone_env["GIT_SSL_NO_VERIFY"] = "1"
         subprocess.run(
             [
                 "git",
@@ -175,7 +184,7 @@ def duplicate_repository(
             capture_output=True,
             text=True,
             timeout=300,
-            env=get_git_env(),
+            env=clone_env,
         )
         logger.info(f"  Cloned to {temp_dir}")
 
@@ -201,15 +210,27 @@ def duplicate_repository(
             check=True,
             capture_output=True,
         )
-        subprocess.run(
-            ["git", "push", "-u", "forgejo", "HEAD:master"],
+        # Get current branch name and push that
+        result = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
             cwd=temp_dir,
-            check=True,
+            capture_output=True,
+            text=True,
+        )
+        current_branch = result.stdout.strip()
+        logger.info(f"  Pushing branch: {current_branch}")
+
+        push_result = subprocess.run(
+            ["git", "push", "-u", "forgejo", f"HEAD:{current_branch}"],
+            cwd=temp_dir,
             capture_output=True,
             text=True,
             timeout=600,  # 10 minutes - push can be slow for large repos
-            env={**os.environ, "GIT_TERMINAL_PROMPT": "0"},
+            env=clone_env,
         )
+        if push_result.returncode != 0:
+            logger.error(f"  Push failed: {push_result.stderr}")
+            raise DuplicateError(f"Failed to push to Forgejo: {push_result.stderr}")
         logger.info(f"  Pushed to {forgejo_clone_url}")
 
         # Now clone from Forgejo to target locations
@@ -224,15 +245,26 @@ def duplicate_repository(
                 )
 
             logger.info(f"  Cloning to {dest_path}...")
-            subprocess.run(
+            # Use clean environment for local clone - no SSH override needed for HTTP
+            clone_env = {
+                k: v for k, v in get_git_env().items() if k != "GIT_SSH_COMMAND"
+            }
+            clone_env["GIT_TERMINAL_PROMPT"] = "0"
+            clone_env["GIT_SSL_NO_VERIFY"] = "1"
+            clone_env["GIT_SSL_CAINFO"] = ""
+            logger.debug(
+                f"  Clone env: GIT_SSL_NO_VERIFY={clone_env.get('GIT_SSL_NO_VERIFY')}, GIT_SSL_CAINFO={repr(clone_env.get('GIT_SSL_CAINFO'))}"
+            )
+            result = subprocess.run(
                 ["git", "clone", forgejo_clone_url, str(dest_path)],
-                check=True,
                 capture_output=True,
                 text=True,
                 timeout=300,
-                env=get_git_env(),
+                env=clone_env,
             )
-            logger.info(f"  ✓ Cloned successfully")
+            logger.debug(f"  Clone output: {result.stdout}")
+            logger.debug(f"  Clone stderr: {result.stderr}")
+            logger.debug(f"  Clone return code: {result.returncode}")
 
             # Execute post-clone scripts
             if post_clone_scripts:
