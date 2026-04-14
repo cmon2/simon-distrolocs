@@ -256,7 +256,7 @@ def duplicate_repository(
                 f"  Clone env: GIT_SSL_NO_VERIFY={clone_env.get('GIT_SSL_NO_VERIFY')}, GIT_SSL_CAINFO={repr(clone_env.get('GIT_SSL_CAINFO'))}"
             )
             result = subprocess.run(
-                ["git", "clone", forgejo_clone_url, str(dest_path)],
+                ["git", "clone", "--branch", branch, forgejo_clone_url, str(dest_path)],
                 capture_output=True,
                 text=True,
                 timeout=300,
