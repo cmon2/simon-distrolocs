@@ -24,6 +24,17 @@ def _run_post_clone_scripts(scripts: tuple[str, ...], clone_path: Path) -> None:
         scripts: Tuple of script paths (relative to repo root).
         clone_path: Path to the cloned repository.
     """
+    # Import here to avoid circular dependency and to check cmon2lib availability
+    try:
+        from cmon2lib.utils.check_script_status import check_script_status, LogStatus
+
+        has_cmon2lib = True
+    except ImportError:
+        has_cmon2lib = False
+        logger.warning(
+            "  cmon2lib not installed - skipping log-based status verification"
+        )
+
     for script in scripts:
         script_path = Path(script)
         if not script_path.is_absolute():
@@ -34,14 +45,42 @@ def _run_post_clone_scripts(scripts: tuple[str, ...], clone_path: Path) -> None:
             logger.warning(f"  Post-clone script not found: {script_path}")
             continue
 
-        logger.info(f"  Running post-clone script: {script}...")
+        # Generate trace_id for log correlation
+        try:
+            import ulid
+
+            trace_id = ulid.ulid()
+        except ImportError:
+            import uuid
+
+            trace_id = str(uuid.uuid4()).replace("-", "")
+
+        logger.info(f"  Running post-clone script: {script} (trace={trace_id[:8]}...)")
+
+        env = os.environ.copy()
+        env["cmon_trace"] = trace_id
+
         result = subprocess.run(
             [str(script_path), str(clone_path)],
             capture_output=True,
             text=True,
             timeout=300,
+            env=env,
         )
-        if result.returncode != 0:
+
+        # Verify script success via log correlation
+        if has_cmon2lib:
+            try:
+                status = check_script_status(str(script_path), trace_id)
+                if status == LogStatus.ERROR:
+                    logger.error(f"  Script '{script}' failed (ERROR in logs)")
+                elif status == LogStatus.WARNING:
+                    logger.warning(f"  Script '{script}' completed with warnings")
+                else:
+                    logger.info(f"  ✓ Script '{script}' completed successfully")
+            except ValueError as e:
+                logger.warning(f"  Script '{script}' - could not verify logs: {e}")
+        elif result.returncode != 0:
             logger.warning(f"  Script '{script}' failed: {result.stderr.strip()}")
         else:
             logger.info(f"  ✓ Script '{script}' completed")

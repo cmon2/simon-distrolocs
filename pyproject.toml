@@ -24,7 +24,7 @@ classifiers = [
 ]
 dependencies = [
     "rich>=13.0.0",
-    "cmon2lib>=0.1.9",
+    "cmon2lib>=0.2.0",
 ]
 
 [project.optional-dependencies]
