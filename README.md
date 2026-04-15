@@ -179,17 +179,20 @@ method = "anchor"
 simon-distrolocs <dir> [options]
 
 Options:
-  --overwrite       Overwrite destination files with managed versions
-  --sync            Alias for --overwrite
-  --dry-run         Preview changes without applying them
-  --hide-linked     Hide linked items from output
-  --hide-synced     Hide synced items from output
-  --only-unsynced   Show only unsynced items
-  --repos-only      Clone repositories from git sources and exit
-  -v, --verbose     Increase verbosity (can be repeated)
-  -q, --quiet       Suppress informational messages
-  --version         Show version
-  --help            Show help
+  --overwrite           Overwrite destination files with managed versions
+  --sync                Alias for --overwrite
+  --dry-run             Preview changes without applying them
+  --hide-linked         Hide linked items from output
+  --hide-synced         Hide synced items from output
+  --only-unsynced       Show only unsynced items
+  --repos-only          Clone repositories from git sources and exit
+  --duplicate <name>    Duplicate a repository to Forgejo (requires --branch)
+  --branch <branch>     Branch to duplicate (required with --duplicate)
+  --list-duplications   List all configured repository duplications and exit
+  -v, --verbose         Increase verbosity (can be repeated)
+  -q, --quiet           Suppress informational messages
+  --version             Show version
+  --help                Show help
 ```
 
 ---
@@ -237,6 +240,36 @@ simon-distrolocs ~/my-configs --repos-only --dry-run
 
 ---
 
+## Repository Duplication
+
+Simon DistroLocs can duplicate repositories from external Git services (GitHub, GitLab) to a Forgejo instance.
+
+### Configure Duplication
+
+Add `[[duplication]]` to your TOML:
+
+```toml
+[[duplication]]
+name = "pgxperts-prim-dev"           # Name referenced by --duplicate CLI flag
+source_type = "gitlab"               # For auth lookup (gitlab, github, forgejo)
+source_url = "https://git.hmg/simon/pgxperts-prim.git"
+forgejo_target = "pgxperts-prim"     # Base name for Forgejo repo
+target_clone_locations = ["~/git-repos/", "/var/dev/repos/"]
+enabled = true
+```
+
+### Duplicate a Repository
+
+```bash
+# List available duplications
+simon-distrolocs ~/my-configs --list-duplications
+
+# Duplicate a specific repo (requires --branch)
+simon-distrolocs ~/my-configs --duplicate pgxperts-prim-dev --branch main
+```
+
+---
+
 ## Sync States
 
 | State | Color | Meaning |
@@ -262,6 +295,18 @@ simon-distrolocs ~/my-configs --repos-only --dry-run
 - Python 3.10+
 - `rich>=13.0.0`
 - `tomli>=2.0.0` (Python 3.10 only; 3.11+ uses built-in `tomllib`)
+- `cmon2lib>=0.1.9` (logging and UI helpers)
+
+---
+
+## Logging
+
+All operations are logged using `cmon2lib`. Log files are stored in `_clog/` directories next to the managed configs:
+
+- **Archive logs**: Timestamped files with all log entries
+- **Summary logs**: Persistent logs for INFO, SUCCESS, ERROR events
+
+Logs include a `cmon_trace` field for correlating all log entries within a single tool run (including child processes like post-clone hooks).
 
 ---
 
@@ -280,6 +325,7 @@ simon-distrolocs/
 │       ├── compute_hashes.py     # File/directory hashing
 │       ├── manage_files.py       # File operations (copy, remove, symlink)
 │       ├── render_tree_view.py   # Rich tree rendering
+│       ├── forgejo_client.py     # Forgejo API client
 │       ├── types/                # Type definitions
 │       │   ├── __init__.py       # Re-exports all types
 │       │   ├── define_auth_type.py
@@ -292,7 +338,12 @@ simon-distrolocs/
 │       │   ├── define_app_config.py
 │       │   ├── define_repo_info.py
 │       │   └── define_git_source.py
-│       └── clone_repos.py        # Git repository cloning
+│       ├── clone_repos.py        # Git repository cloning
+│       ├── duplication/          # Repository duplication
+│       │   ├── duplicate_repo.py
+│       │   ├── forgejo_api.py
+│       │   └── get_forgejo_config.py
+│       └── git_helpers/          # Git helper modules
 ├── requirements.md               # Requirements specification
 ├── pyproject.toml               # Package configuration
 └── README.md                    # This file
