@@ -9,23 +9,17 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# simon_ide/ is 5 levels up from auth_verification/
-# auth_verification/ -> simon_distrolocs/ -> src/ -> simon-distrolocs/ -> 06_agents_working_directory/ -> simon_ide/
-SIMON_IDE_DIR="$(cd "$SCRIPT_DIR/../../../../.." && pwd)"
-
-# Color codes
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
+# simon_ide/ is 7 levels up from auth_verification/
+# auth_verification/ -> simon_distrolocs/ -> src/ -> simon-distrolocs/ -> git-repos/ -> simon-public-github-repos/ -> 06_agents_working_directory/ -> simon_ide/
+SIMON_IDE_DIR="$(cd "$SCRIPT_DIR/../../../../../../.." && pwd)"
 
 verify_forgejo_token() {
     local forgejo_base="${1:-}"
     local token_path="${2:-}"
-    
+
     echo "Verifying Forgejo token authentication..."
     echo ""
-    
+
     # Auto-detect forgejo_base from git remotes if not provided
     if [ -z "$forgejo_base" ]; then
         local remote_url
@@ -37,63 +31,63 @@ verify_forgejo_token() {
             fi
         fi
     fi
-    
+
     if [ -z "$forgejo_base" ]; then
-        echo -e "${RED}[ERROR] Forgejo base URL not provided and could not auto-detect${NC}"
+        echo "[ERROR] Forgejo base URL not provided and could not auto-detect"
         return 1
     fi
-    
+
     echo "  Forgejo: $forgejo_base"
-    
+
     # Auto-detect token path if not provided
     if [ -z "$token_path" ]; then
         if [ -f "$SIMON_IDE_DIR/02_configs/git/Forgejo/token" ]; then
             token_path="$SIMON_IDE_DIR/02_configs/git/Forgejo/token"
         else
-            echo -e "${RED}[ERROR] No token file found for Forgejo${NC}"
+            echo "[ERROR] No token file found for Forgejo"
             echo "Expected at: $SIMON_IDE_DIR/02_configs/git/Forgejo/token"
             return 1
         fi
     fi
-    
+
     echo "  Token file: $token_path"
-    
+
     if [ ! -f "$token_path" ]; then
-        echo -e "${RED}[ERROR] Token file not found: $token_path${NC}"
+        echo "[ERROR] Token file not found: $token_path"
         return 1
     fi
-    
+
     # Read token (handle URL format)
     local token
     token=$(cat "$token_path" | tr -d '\n')
-    
+
     # Handle URL-formatted tokens
     if [[ "$token" == *"@"* ]] && [[ "$token" == *"://"* ]]; then
         # Extract token from URL format: scheme://user:token@host
         token=$(echo "$token" | sed -n 's/.*:\/\/[^:]*:\([^@]*\)@.*/\1/p')
     fi
-    
+
     # Test API access
     echo "  Testing API access to ${forgejo_base}/api/v1/user..."
-    
+
     local response
     local http_code
-    
-    response=$(curl -s -w "\n%{http_code}" -H "Authorization: Bearer $token" "${forgejo_base}/api/v1/user" 2>&1)
+
+    response=$(curl -s -w "\n%{http_code}" -H "Authorization: Bearer $token" "${forgejo_base}/api/v1/user" 2>&1) || true
     http_code=$(echo "$response" | tail -n1)
     response=$(echo "$response" | sed '$d')
-    
+
     if [ "$http_code" = "200" ]; then
         local login
         login=$(echo "$response" | grep -o '"login":"[^"]*"' | head -1 | cut -d'"' -f4)
-        echo -e "${GREEN}[OK] Forgejo token authentication successful${NC}"
+        echo "[OK] Forgejo token authentication successful"
         echo "  Logged in as: $login"
         return 0
     elif [ "$http_code" = "401" ]; then
-        echo -e "${RED}[FAIL] Forgejo token authentication failed (401 Unauthorized)${NC}"
+        echo "[FAIL] Forgejo token authentication failed (401 Unauthorized)"
         return 1
     else
-        echo -e "${RED}[FAIL] Forgejo API returned HTTP $http_code${NC}"
+        echo "[FAIL] Forgejo API returned HTTP $http_code"
         echo "  Response: $response"
         return 1
     fi

@@ -67,9 +67,9 @@ def check_auth_verification(source: GitSource) -> tuple[bool, str]:
     if source_type == "github" and auth_method == "ssh":
         return verify_github_ssh()
     elif source_type == "gitlab" and auth_method == "token":
-        return verify_gitlab_token()
+        return verify_gitlab_token(source.list_repos_url)
     elif source_type == "forgejo" and auth_method == "token":
-        return verify_forgejo_token()
+        return verify_forgejo_token(source.list_repos_url)
     else:
         return False, f"No verification available for {source_type}/{auth_method}"
 
