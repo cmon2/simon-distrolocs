@@ -150,16 +150,16 @@ wheels = [
 
 [[package]]
 name = "cmon2lib"
-version = "0.1.0"
+version = "0.2.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "caldav" },
     { name = "loguru" },
     { name = "python-taiga" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/70/8e/6ef946662cb4e22769c1ca2bd563aabdb4f57f9e489cd03aafcea9faa9be/cmon2lib-0.1.0.tar.gz", hash = "sha256:bff60dfca56d347eec304f20ebd0609081527217116423a506de067c2b5aaa53", size = 11813, upload-time = "2026-04-12T19:02:50.843Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c7/70/99524c719dcc6c4305897222a333fbc16beb3ff3dc8d639386127fde15e2/cmon2lib-0.2.1.tar.gz", hash = "sha256:e17b2ffc76b9f506850788da3b8a4831e11294c0bc42adf9ed94a2056ca8e4fd", size = 16261, upload-time = "2026-04-23T14:23:55.226Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ef/13/767c9627faf00b60963b5ebdc142649a7762ceab1f2aa89ebd84728c5c69/cmon2lib-0.1.0-py3-none-any.whl", hash = "sha256:874d13abd4b5d0202354b737943dd835ec96d9f1984f26c00a9804719d5edf88", size = 15004, upload-time = "2026-04-12T19:02:49.801Z" },
+    { url = "https://files.pythonhosted.org/packages/d5/b0/3d98ec5c74b79ab0d7e0e93daad9d38bd1dac7ac66b82e7f79b22ced1f99/cmon2lib-0.2.1-py3-none-any.whl", hash = "sha256:0304c4522295a1d35107712d3cdcf80bc20b86f0043122fdd18d239a51a6a0c0", size = 21415, upload-time = "2026-04-23T14:23:56.897Z" },
 ]
 
 [[package]]
@@ -772,7 +772,7 @@ tomli = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cmon2lib", specifier = ">=0.1.0" },
+    { name = "cmon2lib", specifier = ">=0.2.1" },
     { name = "rich", specifier = ">=13.0.0" },
     { name = "tomli", marker = "python_full_version < '3.11' and extra == 'tomli'", specifier = ">=2.0.0" },
 ]
