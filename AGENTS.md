@@ -67,7 +67,6 @@ CLI Input → Find TOML → Parse Config → Filter by Hostname → Evaluate Syn
 name = "Config Name"
 source = "relative/path"      # Source relative to config directory
 target = "~/.config"          # Destination (supports ~)
-distro_type = "workstation"   # Optional: references [distro_types.*]
 method = "symlink"           # Optional: "symlink" (default) or "anchor"
 excluded_on_hosts = []       # Optional: hosts where this should NOT apply
 ```
@@ -110,8 +109,10 @@ python -m simon_distrolocs --help
 
 # Test with a real config directory
 mkdir -p /tmp/test-configs
-echo '[distro_types.test]' > /tmp/test-configs/test.toml
-echo 'visualizationDepth = 1' >> /tmp/test-configs/test.toml
+echo '[[mapping]]' > /tmp/test-configs/test.toml
+echo 'name = "Test"' >> /tmp/test-configs/test.toml
+echo 'source = "test"' >> /tmp/test-configs/test.toml
+echo 'target = "~/.test"' >> /tmp/test-configs/test.toml
 python -m simon_distrolocs /tmp/test-configs
 ```
 

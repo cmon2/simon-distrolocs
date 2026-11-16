@@ -28,6 +28,9 @@ STATUS_SYMBOLS: dict[str, str] = {
     "unsynced": "✗",
 }
 
+TARGET_PATH_DEPTH: int = 2
+"""How many levels of the target path are drawn in the tree."""
+
 
 def get_status_style(status: "SyncStatus") -> Style:
     """Get the Rich style for a sync status.
@@ -131,7 +134,6 @@ def build_config_tree(
     Returns:
         Tree object ready for rendering.
     """
-    from .config import get_visualization_depth
     from .evaluate_sync import count_by_status
 
     hostname = config.mappings[0].source.parts[0] if config.mappings else "unknown"
@@ -163,17 +165,15 @@ def build_config_tree(
         source_str = f"[dim]→ {mapping.source}[/dim]"
 
         label = f"[bold]{mapping.name}[/bold] → [blue]{mapping.target}[/blue] {status_symbol}"
-        target_depth = get_visualization_depth(config, mapping)
 
         subtree = tree.add(label)
 
-        if target_depth > 0:
-            path_lines = expand_path_for_display(mapping.target, target_depth + 1)
-            for path_part, level in path_lines[1:]:
-                if level > target_depth:
-                    break
-                indent = "│   " * (level - 1) + "├── " if level > 0 else ""
-                subtree.add(f"[dim]{indent}{path_part}[/dim]")
+        path_lines = expand_path_for_display(mapping.target, TARGET_PATH_DEPTH + 1)
+        for path_part, level in path_lines[1:]:
+            if level > TARGET_PATH_DEPTH:
+                break
+            indent = "│   " * (level - 1) + "├── " if level > 0 else ""
+            subtree.add(f"[dim]{indent}{path_part}[/dim]")
 
         subtree.add(source_str)
 

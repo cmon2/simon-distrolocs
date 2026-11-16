@@ -10,7 +10,6 @@ from typing import Any
 
 from .parsing import (
     ConfigError,
-    parse_distro_types,
     parse_duplications,
     parse_git_sources,
     parse_mappings,
@@ -82,37 +81,6 @@ def _sort_configs_by_preference(
     # Sort by: depth (ascending), then atime (descending - most recent first)
     config_infos.sort(key=lambda x: (x[2], -x[3]))
     return [(c[0], c[1]) for c in config_infos]
-
-
-def _deduplicate_distro_types(
-    all_configs: list[tuple[Path, dict[str, Any]]], wd: Path
-) -> dict[str, Any]:
-    """Merge distro_types from multiple configs, deduplicating and logging conflicts.
-
-    Args:
-        all_configs: List of (config_path, toml_dict) sorted by preference.
-        wd: Working directory for logging.
-
-    Returns:
-        Merged distro_types dictionary.
-    """
-    merged: dict[str, Any] = {}
-
-    for config_path, toml_dict in all_configs:
-        raw_types = toml_dict.get("distro_types", {})
-        for name, config in raw_types.items():
-            if name in merged:
-                if merged[name] != config:
-                    warnings.warn(
-                        f"Conflicting distro_types entry '{name}' in {config_path}: "
-                        f"using version from {config_path} (closer to wd). "
-                        f"Conflicting value: {merged[name]}"
-                    )
-                    merged[name] = config
-            else:
-                merged[name] = config
-
-    return merged
 
 
 def _deduplicate_entries_by_key(
@@ -254,7 +222,6 @@ def load_config(parent_dir: Path) -> AppConfig:
     """Load and merge the configuration from all config files in the directory.
 
     When multiple config files are found, they are merged:
-    - [distro_types.*]: Merged by key, later values override earlier on conflict
     - [[mapping]], [[git_sources]], [[duplication]]: Deduplicated by name,
       with conflict resolution preferring entries closer to working directory
 
@@ -279,11 +246,8 @@ def load_config(parent_dir: Path) -> AppConfig:
     # Sort by preference (closer to wd first, then more recent)
     all_configs = _sort_configs_by_preference(all_configs, wd)
 
-    # Merge distro_types (dict by key)
-    merged_distro_types_raw = _deduplicate_distro_types(all_configs, wd)
-
     # Build merged toml dict for parsing
-    merged_toml: dict[str, Any] = {"distro_types": merged_distro_types_raw}
+    merged_toml: dict[str, Any] = {}
 
     # Merge entries by key
     for entry_key, toml_key in [
@@ -295,7 +259,6 @@ def load_config(parent_dir: Path) -> AppConfig:
         merged_toml[toml_key] = deduped
 
     # Parse merged config
-    distro_types = parse_distro_types(merged_toml)
     all_mappings = parse_mappings(merged_toml, parent_dir)
     duplications = parse_duplications(merged_toml)
 
@@ -307,28 +270,7 @@ def load_config(parent_dir: Path) -> AppConfig:
             filtered_mappings.append(mapping)
 
     return AppConfig(
-        distro_types=distro_types,
         mappings=filtered_mappings,
         all_mappings=all_mappings,
         duplications=duplications,
     )
-
-
-def get_visualization_depth(config: AppConfig, mapping: ConfigMapping) -> int:
-    """Get the visualization depth for a mapping's distro type.
-
-    Args:
-        config: The application configuration.
-        mapping: The configuration mapping.
-
-    Returns:
-        Visualization depth (0 if no distro_type specified).
-    """
-    if mapping.distro_type is None:
-        return 0
-
-    distro_type = config.distro_types.get(mapping.distro_type)
-    if distro_type is None:
-        return 0
-
-    return distro_type.visualization_depth

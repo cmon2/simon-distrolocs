@@ -57,20 +57,15 @@ cd ~/my-configs
 Create `simon-distrolocs.toml`:
 
 ```toml
-[distro_types.workstation]
-visualizationDepth = 2
-
 [[mapping]]
 name = "Bash RC"
 source = "configs/bashrc"
 target = "~/.bashrc"
-distro_type = "workstation"
 
 [[mapping]]
 name = "Vim Config"
 source = "configs/vim"
 target = "~/.vim"
-distro_type = "workstation"
 ```
 
 ### 3. Add Your Configs
@@ -113,19 +108,11 @@ simon-distrolocs ~/my-configs --overwrite
 ### TOML Structure
 
 ```toml
-# Define visualization depth for different machine types
-[distro_types.workstation]
-visualizationDepth = 2
-
-[distro_types.server]
-visualizationDepth = 1
-
 # Map configs to destinations
 [[mapping]]
 name = "Bash RC"
 source = "configs/bashrc"
 target = "~/.bashrc"
-distro_type = "workstation"
 method = "symlink"  # or "anchor"
 
 # Host-specific config (excluded on certain hosts)
@@ -143,7 +130,6 @@ excluded_on_hosts = ["other-host"]
 | `name` | Yes | Human-readable config name |
 | `source` | Yes | Path relative to config directory |
 | `target` | Yes | Destination path (supports `~`) |
-| `distro_type` | No | References `[distro_types.*]` for visualization depth |
 | `method` | No | `symlink` (default) or `anchor` |
 | `excluded_on_hosts` | No | List of hostnames where this should NOT apply |
 
@@ -331,7 +317,6 @@ simon-distrolocs/
 │       │   ├── define_auth_type.py
 │       │   ├── define_link_method.py
 │       │   ├── define_sync_status.py
-│       │   ├── define_distro_type.py
 │       │   ├── define_config_mapping.py
 │       │   ├── define_sync_state.py
 │       │   ├── define_repo_duplication.py

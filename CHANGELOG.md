@@ -56,6 +56,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Multi-config file merging**: When multiple `*simon-distrolocs.toml` files are found, they are now merged instead of causing an error. Conflicts are resolved by preferring entries closer to the working directory.
 
+### Removed
+
+- **Distro types**: The `[distro_types.*]` TOML section, the `distro_type` field on a mapping, the
+  `DistroType` dataclass and the `get_visualization_depth()` lookup are gone. The type only ever
+  selected a rendering depth for the tree; it never selected which config applies to a host —
+  that is `excluded_on_hosts`. The tree now draws a fixed depth of two levels. A manifest that
+  still carries `distro_type` keeps working: the unknown key is ignored.
+
 ### Fixed
 
 - **Path resolution bug**: When multiple configs exist, token paths now resolve correctly using the actual config file's directory, not the originally passed directory

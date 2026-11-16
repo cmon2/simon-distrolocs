@@ -29,7 +29,6 @@ def parse_mappings(toml_dict: dict[str, Any], parent_dir: Path) -> list[ConfigMa
         name = item.get("name", "")
         source_str = item.get("source", "")
         target_str = item.get("target", "")
-        distro_type = item.get("distro_type")
         excluded_on_hosts_raw = item.get("excluded_on_hosts", [])
         method_str = item.get("method")
 
@@ -44,7 +43,6 @@ def parse_mappings(toml_dict: dict[str, Any], parent_dir: Path) -> list[ConfigMa
             name=name,
             source=source,
             target=target,
-            distro_type=distro_type,
             excluded_on_hosts=tuple(excluded_on_hosts_raw),
             method=method,
         )

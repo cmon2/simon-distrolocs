@@ -5,7 +5,6 @@ For backwards compatibility, all functions are re-exported here.
 """
 
 from .parse_auth_type import parse_auth_type
-from .parse_distro_types import parse_distro_types
 from .parse_duplications import (
     DuplicateError,
     find_duplication_by_name,
@@ -20,7 +19,6 @@ __all__ = [
     "ConfigError",
     "DuplicateError",
     "parse_toml_config",
-    "parse_distro_types",
     "parse_link_method",
     "parse_mappings",
     "parse_auth_type",

@@ -25,7 +25,6 @@ A CLI tool to manage and distribute centralized configuration files/folders to s
 - Recursively search parent directory for files matching `*simon-distrolocs.toml`
 - If multiple matches found with identical content, use the first (warn and deduplicate)
 - If multiple matches found with different content, merge all configs:
-  - `[distro_types.*]`: Merged by key, later values override on conflict
   - `[[mapping]]`, `[[git_sources]]`, `[[duplication]]`: Deduplicated by `name` field
   - **Conflict resolution**: For entries with same name but different content:
     1. Prefer the entry closer to the current working directory (shorter relative path)
@@ -36,13 +35,6 @@ A CLI tool to manage and distribute centralized configuration files/folders to s
 ### 2.2 Configuration Mappings
 
 ```toml
-[distro_types.workstation]
-# visualizationDepth: How deep to render target folder structure in tree (0 = files only)
-visualizationDepth = 2
-
-[distro_types.server]
-visualizationDepth = 1
-
 [[mapping]]
 # Human-readable name for the managed config
 name = "Bash RC"
@@ -50,8 +42,6 @@ name = "Bash RC"
 source = "configs/bashrc"
 # Target path on the system (where it should go)
 target = "~/.bashrc"
-# Optional: Reference to a distro_type (defaults to 0 depth if omitted)
-distro_type = "workstation"
 # Optional: Link method - "symlink" (default) or "anchor"
 method = "symlink"
 
@@ -317,16 +307,10 @@ class AuthType(Enum):
     NONE = "none"
 
 @dataclass(frozen=True)
-class DistroType:
-    name: str
-    visualization_depth: int
-
-@dataclass(frozen=True)
 class ConfigMapping:
     name: str
     source: Path
     target: Path
-    distro_type: Optional[str] = None
     excluded_on_hosts: tuple[str, ...] = field(default_factory=tuple)
     method: Optional[LinkMethod] = None
 
