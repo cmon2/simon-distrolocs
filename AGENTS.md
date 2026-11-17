@@ -8,8 +8,11 @@ Instructions for AI agents working on the Simon DistroLocs project.
 
 Simon DistroLocs is a CLI tool for managing and distributing centralized configuration files to system-specific destinations, with git repository cloning capabilities.
 
-**Repository**: `git-repos/simon-public-git/simon-distrolocs/` (GitHub public repo)
-**Location in simon_ide**: `git-repos/simon-public-git/simon-distrolocs/`
+**Repository**: `git@github.com:cmon2/simon-distrolocs.git` (GitHub public repo)
+**Working copy in simon_ide**: `06_agents_working_directory/simon-distrolocs` — the editable
+install at `~/.venv/simon-distrolocs` points at its `src/`, so this is the copy that runs
+**Managed clone**: `06_agents_working_directory/git-repos/simon-public-github-repos/simon-distrolocs`
+(cloned by the distrolocs manifest, not edited by hand)
 
 ---
 
@@ -40,7 +43,9 @@ Simon DistroLocs is a CLI tool for managing and distributing centralized configu
 | Module | Responsibility |
 |--------|----------------|
 | `__main__.py` | CLI entry point, argument parsing |
-| `config.py` | TOML file discovery, parsing, validation |
+| `config.py` | Backwards-compatible re-exports of the config API |
+| `assemble_config.py` | TOML file discovery, merging, parsing, validation |
+| `parsing/` | One parser per TOML section (individual parse_*.py files) |
 | `types/` | Type definitions (individual define_*.py files) |
 | `evaluate_sync.py` | Sync status evaluation |
 | `execute_sync.py` | Execute sync operations |
@@ -49,11 +54,12 @@ Simon DistroLocs is a CLI tool for managing and distributing centralized configu
 | `manage_files.py` | File operations (copy, remove, symlink) |
 | `render_tree_view.py` | Rich tree rendering |
 | `clone_repos.py` | Git repository cloning from API sources |
+| `duplication/`, `git_helpers/`, `auth_verification/` | Repository duplication, git plumbing, token checks |
 
 ### Data Flow
 
 ```
-CLI Input → Find TOML → Parse Config → Filter by Hostname → Evaluate Sync Status → Render Tree
+CLI Input → Find TOML files → Merge them → Parse Config → Filter by Hostname → Evaluate Sync Status → Render Tree
 ```
 
 ---
@@ -191,14 +197,23 @@ simon-distrolocs/
 ├── src/simon_distrolocs/
 │   ├── __init__.py
 │   ├── __main__.py         # CLI entry (DO NOT import from here for functionality)
-│   ├── config.py           # Config loading
-│   ├── filesystem.py       # File ops
+│   ├── config.py           # Backwards-compatible re-exports
+│   ├── assemble_config.py  # Discovery, merging, parsing
+│   ├── evaluate_sync.py    # Sync status
+│   ├── execute_sync.py     # Sync execution
+│   ├── compare_paths.py    # Path comparison
+│   ├── compute_hashes.py   # File/directory hashing
+│   ├── manage_files.py     # File operations
+│   ├── render_tree_view.py # Rich tree rendering
 │   ├── clone_repos.py      # Git cloning
-│   ├── sync_engine.py      # Sync logic
-│   ├── types.py            # Type defs
-│   └── visualization.py    # Rich output
+│   ├── parsing/            # One parser per TOML section
+│   ├── types/              # One dataclass per define_*.py file
+│   ├── duplication/        # Repository duplication
+│   ├── git_helpers/        # Git plumbing
+│   └── auth_verification/  # Token and SSH checks
 ├── requirements.md          # Full requirements spec
 ├── pyproject.toml          # Package config
+├── uv.lock                 # Locked dependencies
 └── README.md               # User-facing docs
 ```
 
@@ -222,7 +237,16 @@ simon-distrolocs/
 
 ## Notes
 
-- This is a **public repository** on GitHub (`simon-public-git/simon-distrolocs`)
-- The **main development repo** is `simon_ide` on Forgejo (private)
-- Changes should be committed to the GitHub clone first, then pulled into simon_ide
-- The `git-repos/simon-public-git/simon-distrolocs/` path is gitignored in simon_ide
+- This is a **public repository** on GitHub (`cmon2/simon-distrolocs`)
+- The **working copy** is `06_agents_working_directory/simon-distrolocs`; it is gitignored in simon_ide
+- **The working copy follows the public repo, it does not lead it.** Catch up with
+  `git fetch origin && git reset --hard origin/master` (keep uncommitted work aside first).
+- **Publish from a worktree at the public tip** — never force-push the working copy:
+  ```bash
+  git worktree add --detach /tmp/distrolocs-publish origin/master
+  cd /tmp/distrolocs-publish && git cherry-pick <sha> && git push origin HEAD:master
+  ```
+  A push from the working copy is rejected as non-fast-forward as soon as the two have
+  diverged; the 2026-11-16 divergence (nine published commits missing from the working copy)
+  is the reason this rule exists.
+- The `06_agents_working_directory/` path is gitignored in simon_ide
