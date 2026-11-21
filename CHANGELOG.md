@@ -71,6 +71,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A duplication ran on hosts that do not have its target locations.** A duplication clones into
+  every target location, so it belongs to the host that has all of them. The tool checked none of
+  them: on a host without the Windows path of the laptop, the clone failed silently — the return
+  code went to the debug log only — the post-clone scripts ran on a directory that was never
+  created, and the tool printed "Duplication complete" anyway. The locations are checked now,
+  before the authentication, before the push to Forgejo and before any clone; a missing one ends
+  the run with a message that names it.
+
 - **Relative symlinks**: A mapping that was given with a relative configuration directory produced
   a symlink with a relative target. Such a link resolves against its own directory and not
   against the working directory of the tool, so it pointed nowhere - `~/.playwright ->

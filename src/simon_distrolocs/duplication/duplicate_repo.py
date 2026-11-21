@@ -102,7 +102,8 @@ def duplicate_repository(
         source_type: Type of source (gitlab, github, forgejo) for auth lookup.
         forgejo_target: Base name for Forgejo repo (e.g., "pgxperts-prim").
         branch: Branch to duplicate.
-        clone_locations: Tuple of paths to clone the Forgejo repo to.
+        clone_locations: Tuple of paths to clone the Forgejo repo to. Every one of them has to
+            exist on this host; the duplication belongs to the host that has all of them.
         config_dir: Directory containing the TOML config file.
         post_clone_scripts: Tuple of script paths to execute after cloning.
 
@@ -111,6 +112,17 @@ def duplicate_repository(
     """
     # Import here to avoid circular dependency
     from .get_forgejo_config import get_forgejo_config
+
+    missing_locations = [
+        location
+        for location in clone_locations
+        if not Path(location).expanduser().is_dir()
+    ]
+    if missing_locations:
+        raise DuplicateError(
+            "The duplication needs every target location to exist on this host. Missing: "
+            + ", ".join(missing_locations)
+        )
 
     # Get Forgejo config from TOML
     forgejo_base, token = get_forgejo_config(config_dir)

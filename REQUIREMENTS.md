@@ -136,8 +136,14 @@ enabled = true
 | `source_type` | string | Yes | Type of source for auth lookup (`gitlab`, `github`, `forgejo`) |
 | `source_url` | string | Yes | Git URL of the source repository |
 | `forgejo_target` | string | Yes | Base name for Forgejo repo (without namespace) |
-| `target_clone_locations` | array | Yes | Directories where duplicated repo should be cloned |
+| `target_clone_locations` | array | Yes | Directories where duplicated repo should be cloned. Every one of them has to exist on the host that runs the duplication |
 | `enabled` | boolean | No | Whether this duplication is active (default: true) |
+
+**Note:** a duplication clones into **every** target location, so it belongs to the host that has
+all of them. The tool checks the locations before it authenticates, before it pushes to Forgejo
+and before it clones: a missing location ends the run with a message naming it, and nothing
+happens. A location that is relative is resolved against the working directory of the tool — the
+same base the clone uses.
 
 ---
 

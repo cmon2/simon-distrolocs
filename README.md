@@ -255,6 +255,10 @@ simon-distrolocs ~/my-configs --list-duplications
 simon-distrolocs ~/my-configs --duplicate pgxperts-prim-dev --branch main
 ```
 
+A duplication clones into **every** target location, so it belongs to the host that has all of
+them. If one of them is missing, the tool says which one and stops — before it authenticates,
+before it pushes to Forgejo and before it clones anything.
+
 ---
 
 ## Sync States
