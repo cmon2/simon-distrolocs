@@ -266,6 +266,10 @@ def load_config(parent_dir: Path) -> AppConfig:
 
     filtered_mappings: list[ConfigMapping] = []
     for mapping in all_mappings:
+        # A mapping with an include list belongs to the listed hosts alone; without one it
+        # belongs to every host except the ones that exclude it.
+        if mapping.included_on_hosts and current_host not in mapping.included_on_hosts:
+            continue
         if current_host not in mapping.excluded_on_hosts:
             filtered_mappings.append(mapping)
 

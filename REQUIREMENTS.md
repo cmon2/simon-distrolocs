@@ -58,6 +58,11 @@ source is resolved against the parent directory of the configuration file, the t
 home directory (`~`). A symlink that points at a relative path would resolve against its own
 directory and not against the working directory of the tool, so the link would point nowhere.
 
+**Note:** `included_on_hosts` names the hosts a mapping belongs to; an empty list means every
+host. `excluded_on_hosts` names the hosts it does not belong to. A mapping with an include list
+belongs to the listed hosts and to no other — the deny list cannot express that, because it can
+only name the hosts that are left out.
+
 ### 2.3 Git Sources Configuration
 
 ```toml
@@ -317,6 +322,7 @@ class ConfigMapping:
     source: Path
     target: Path
     excluded_on_hosts: tuple[str, ...] = field(default_factory=tuple)
+    included_on_hosts: tuple[str, ...] = field(default_factory=tuple)
     method: Optional[LinkMethod] = None
 
 @dataclass

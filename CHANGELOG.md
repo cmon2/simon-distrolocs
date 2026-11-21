@@ -54,6 +54,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`included_on_hosts` for mappings**: A mapping can name the hosts it belongs to. Without the
+  list a mapping belongs to every host except the ones in `excluded_on_hosts`; with the list it
+  belongs to the named hosts and to no other. The deny list alone cannot say "only here" — it can
+  only say "everywhere except these", and it fails open on a machine nobody thought of.
+
 - **Multi-config file merging**: When multiple `*simon-distrolocs.toml` files are found, they are now merged instead of causing an error. Conflicts are resolved by preferring entries closer to the working directory.
 
 ### Removed

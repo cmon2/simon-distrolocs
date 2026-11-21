@@ -30,10 +30,14 @@ def parse_mappings(toml_dict: dict[str, Any], parent_dir: Path) -> list[ConfigMa
         source_str = item.get("source", "")
         target_str = item.get("target", "")
         excluded_on_hosts_raw = item.get("excluded_on_hosts", [])
+        included_on_hosts_raw = item.get("included_on_hosts", [])
         method_str = item.get("method")
 
         if isinstance(excluded_on_hosts_raw, str):
             excluded_on_hosts_raw = [excluded_on_hosts_raw]
+
+        if isinstance(included_on_hosts_raw, str):
+            included_on_hosts_raw = [included_on_hosts_raw]
 
         # A mapping carries absolute paths: a symlink whose target is relative resolves
         # against its own directory, not against the working directory of the tool, so a
@@ -47,6 +51,7 @@ def parse_mappings(toml_dict: dict[str, Any], parent_dir: Path) -> list[ConfigMa
             source=source,
             target=target,
             excluded_on_hosts=tuple(excluded_on_hosts_raw),
+            included_on_hosts=tuple(included_on_hosts_raw),
             method=method,
         )
         mappings.append(mapping)

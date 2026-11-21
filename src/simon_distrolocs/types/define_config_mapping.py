@@ -18,7 +18,8 @@ class ConfigMapping:
         name: Human-readable name for this configuration.
         source: Relative path to the managed config within the parent directory.
         target: Destination path on the system (absolute or ~-prefixed).
-        hosts: Tuple of hostnames where this mapping applies. Empty = all hosts.
+        excluded_on_hosts: Tuple of hostnames where this mapping does not apply.
+        included_on_hosts: Tuple of hostnames where this mapping applies. Empty = every host.
         method: How to link source to target (symlink or anchor hard copy).
     """
 
@@ -26,4 +27,5 @@ class ConfigMapping:
     source: Path
     target: Path
     excluded_on_hosts: tuple[str, ...] = field(default_factory=tuple)
+    included_on_hosts: tuple[str, ...] = field(default_factory=tuple)
     method: "LinkMethod | None" = None

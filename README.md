@@ -132,6 +132,7 @@ excluded_on_hosts = ["other-host"]
 | `target` | Yes | Destination path (supports `~`), made absolute before the link is written |
 | `method` | No | `symlink` (default) or `anchor` |
 | `excluded_on_hosts` | No | List of hostnames where this should NOT apply |
+| `included_on_hosts` | No | List of hostnames where this SHOULD apply. Empty = every host |
 
 ---
 
