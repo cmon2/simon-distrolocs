@@ -66,6 +66,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Relative symlinks**: A mapping that was given with a relative configuration directory produced
+  a symlink with a relative target. Such a link resolves against its own directory and not
+  against the working directory of the tool, so it pointed nowhere - `~/.playwright ->
+  02_configs/playwright` in the dotfiles repository. The source and the target of a mapping are
+  absolute now, which is what the status evaluation of section 3.3 has always required.
+
 - **Path resolution bug**: When multiple configs exist, token paths now resolve correctly using the actual config file's directory, not the originally passed directory
 
 - **Git source path resolution**: `auth_token_path` and `cloning_destination` now correctly resolved relative to cwd (repo root), not the TOML config directory

@@ -53,6 +53,11 @@ target = "~/.config/laptop"
 excluded_on_hosts = []
 ```
 
+**Note:** `source` and `target` are turned into absolute paths when the mapping is parsed. The
+source is resolved against the parent directory of the configuration file, the target against the
+home directory (`~`). A symlink that points at a relative path would resolve against its own
+directory and not against the working directory of the tool, so the link would point nowhere.
+
 ### 2.3 Git Sources Configuration
 
 ```toml

@@ -35,8 +35,11 @@ def parse_mappings(toml_dict: dict[str, Any], parent_dir: Path) -> list[ConfigMa
         if isinstance(excluded_on_hosts_raw, str):
             excluded_on_hosts_raw = [excluded_on_hosts_raw]
 
-        source = parent_dir / source_str
-        target = Path(target_str.replace("~", str(Path.home())))
+        # A mapping carries absolute paths: a symlink whose target is relative resolves
+        # against its own directory, not against the working directory of the tool, so a
+        # relative source would write a link that points nowhere.
+        source = (parent_dir / source_str).absolute()
+        target = Path(target_str.replace("~", str(Path.home()))).absolute()
         method = parse_link_method(method_str)
 
         mapping = ConfigMapping(

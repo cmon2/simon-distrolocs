@@ -128,8 +128,8 @@ excluded_on_hosts = ["other-host"]
 | Field | Required | Description |
 |-------|----------|-------------|
 | `name` | Yes | Human-readable config name |
-| `source` | Yes | Path relative to config directory |
-| `target` | Yes | Destination path (supports `~`) |
+| `source` | Yes | Path relative to config directory, made absolute before the link is written |
+| `target` | Yes | Destination path (supports `~`), made absolute before the link is written |
 | `method` | No | `symlink` (default) or `anchor` |
 | `excluded_on_hosts` | No | List of hostnames where this should NOT apply |
 
